@@ -40,12 +40,17 @@ import {
 
 interface Props {
   storeId: string;
+  /** 로그인 응답의 매장명 — GET /api/pos/store 로 최신값을 받기 전까지의 초기값 */
   storeName: string;
 }
 
-export default function PosApp({ storeId, storeName }: Props) {
+export default function PosApp({ storeId, storeName: initialStoreName }: Props) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<MainTab>("tables");
+
+  // 헤더 표시용: 주점 이름 + 운영단체 (GET /api/pos/store 에서 채움)
+  const [storeName, setStoreName] = useState<string>(initialStoreName);
+  const [organization, setOrganization] = useState<string>("");
 
   const [tables, setTables] = useState<Table[]>([]);
   const [waiting, setWaiting] = useState<WaitingOrder[]>([]);
@@ -143,6 +148,8 @@ export default function PosApp({ storeId, storeName }: Props) {
         setAccount(toSettlementAccount(store));
         setTableCountState(store.tableCount);
         setStoreOpen(store.open);
+        if (store.name) setStoreName(store.name);
+        setOrganization(store.organization ?? "");
         setSales(summary);
       } catch (e) {
         if (alive) handleError(e, "데이터를 불러오지 못했습니다. 서버 연결을 확인해 주세요.");
@@ -344,6 +351,7 @@ export default function PosApp({ storeId, storeName }: Props) {
     <div className="app">
       <Header
         storeName={storeName}
+        organization={organization}
         todaySales={todaySales}
         storeOpen={storeOpen}
         onToggleOpen={toggleStoreOpen}

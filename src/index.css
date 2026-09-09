@@ -125,17 +125,25 @@ button {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
+/* 주점 이름 — 브랜드 자리 */
 .header__logo {
   font: var(--font-title);
   color: var(--color-primary);
   letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
+/* 운영단체 — 보조 표기 */
 .header__store {
   font: var(--font-caption);
   color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
 }
 
 .header__summary {

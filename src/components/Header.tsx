@@ -3,7 +3,10 @@ import { formatKRW } from "@/lib/types";
 export type MainTab = "tables" | "admin";
 
 interface Props {
+  /** 주점 이름 (헤더에 크게 표시) */
   storeName: string;
+  /** 운영단체 (주점 이름 옆 보조 표기) */
+  organization: string;
   todaySales: number;
   /** 영업중 여부 */
   storeOpen: boolean;
@@ -17,6 +20,7 @@ interface Props {
 
 export default function Header({
   storeName,
+  organization,
   todaySales,
   storeOpen,
   onToggleOpen,
@@ -28,8 +32,8 @@ export default function Header({
   return (
     <header className="header">
       <div className="header__brand">
-        <span className="header__logo">을지포차</span>
-        <span className="header__store">{storeName}</span>
+        <span className="header__logo">{storeName}</span>
+        {organization && <span className="header__store">{organization}</span>}
       </div>
 
       <div className="header__summary">
