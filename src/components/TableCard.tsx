@@ -57,9 +57,8 @@ export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Pr
       {isWarning && <span className="table-card__warn-badge">{mins}분</span>}
       <div className="table-card__top">
         <span className="table-card__num">{table.number}번</span>
-        <span className={`table-card__time${isWarning ? " table-card__time--warning" : ""}`}>
-          {clock(startedAt)}
-        </span>
+        {/* 경고 상태에서는 우상단 배지가 시간을 대신하므로 겹치지 않도록 숨김 */}
+        {!isWarning && <span className="table-card__time">{clock(startedAt)}</span>}
       </div>
       <p className="table-card__preview">{preview}</p>
       <span className="table-card__total">{formatKRW(orderTotal(items))}</span>
