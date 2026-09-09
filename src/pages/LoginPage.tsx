@@ -32,7 +32,10 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      navigate(`/store/${session.storeId}`, { replace: true });
+      // 역할에 따라 분기: ADMIN → 운영자 대시보드, STORE → 해당 주점 POS
+      navigate(session.role === "ADMIN" ? "/operator" : `/store/${session.storeId}`, {
+        replace: true,
+      });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
       setError(msg);

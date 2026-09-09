@@ -4,12 +4,14 @@ import LoginPage from "@/pages/LoginPage";
 import OperatorLoginPage from "@/pages/OperatorLoginPage";
 import OperatorDashboard from "@/pages/OperatorDashboard";
 import { getSession } from "@/lib/auth";
-import { getOperatorSession } from "@/lib/operator";
 
-/** 진입점: 세션이 있으면 해당 주점 POS로, 없으면 로그인으로. */
+/** 진입점: 세션 역할에 따라 POS / 운영자 대시보드로, 없으면 로그인으로. */
 function Home() {
   const session = getSession();
-  return <Navigate to={session ? `/store/${session.storeId}` : "/login"} replace />;
+  if (!session) return <Navigate to="/login" replace />;
+  return (
+    <Navigate to={session.role === "ADMIN" ? "/operator" : `/store/${session.storeId}`} replace />
+  );
 }
 
 /**
@@ -23,15 +25,17 @@ function StoreRoute() {
   const session = getSession();
 
   if (!session) return <Navigate to="/login?reason=auth" replace />;
+  if (session.role !== "STORE") return <Navigate to="/operator" replace />;
   if (session.storeId !== storeId) return <Navigate to="/login?reason=forbidden" replace />;
 
   return <PosApp storeId={session.storeId} storeName={session.storeName} />;
 }
 
-/** 운영자 라우트 가드. 운영자 세션이 없으면 → /operator/login */
+/** 운영자 라우트 가드. ADMIN 세션이 아니면 → /operator/login */
 function OperatorRoute() {
-  const session = getOperatorSession();
-  if (!session) return <Navigate to="/operator/login?reason=auth" replace />;
+  const session = getSession();
+  if (!session || session.role !== "ADMIN")
+    return <Navigate to="/operator/login?reason=auth" replace />;
   return <OperatorDashboard />;
 }
 

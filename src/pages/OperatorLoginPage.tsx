@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { operatorLogin } from "@/lib/operator";
+import { login, logout } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
 
 export default function OperatorLoginPage() {
   const navigate = useNavigate();
@@ -10,16 +11,33 @@ export default function OperatorLoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const reasonMsg = reason === "auth" ? "운영자 로그인이 필요합니다." : null;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (operatorLogin(username, password)) {
+    setLoading(true);
+    // 관리자·포스 공통 로그인 API. role 로 관리자만 통과시킨다.
+    try {
+      const session = await login(username, password);
+      if (!session) {
+        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+        setLoading(false);
+        return;
+      }
+      if (session.role !== "ADMIN") {
+        logout();
+        setError("관리자 계정이 아닙니다. 주점 POS 로그인을 이용해 주세요.");
+        setLoading(false);
+        return;
+      }
       navigate("/operator", { replace: true });
-    } else {
-      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      setError(msg);
+      setLoading(false);
     }
   };
 
@@ -57,8 +75,8 @@ export default function OperatorLoginPage() {
 
         {error && <div className="login__error">{error}</div>}
 
-        <button className="btn btn--primary btn--block" type="submit">
-          로그인
+        <button className="btn btn--primary btn--block" type="submit" disabled={loading}>
+          {loading ? "확인 중..." : "로그인"}
         </button>
       </form>
     </div>
