@@ -14,29 +14,32 @@ import { saveSession, clearSession, getSession, type Session } from "@/lib/sessi
 export type { Session } from "@/lib/session";
 export { getSession } from "@/lib/session";
 
-/** STORE 응답만 포스 세션으로 변환. ADMIN·매장 없는 응답이면 null. */
-function toStoreSession(res: LoginResponse): Session | null {
-  if (res.role !== "STORE" || res.storeId == null) return null;
+/**
+ * LoginResponse → Session. 역할(ADMIN/STORE) 공통.
+ * STORE 인데 storeId 가 없으면(서버 이상) null.
+ */
+function toSession(res: LoginResponse): Session | null {
+  if (res.role === "STORE" && res.storeId == null) return null;
   return {
-    storeId: String(res.storeId),
+    storeId: res.storeId != null ? String(res.storeId) : "",
     storeName: res.storeName ?? "",
-    role: "STORE",
+    role: res.role,
     accessToken: res.accessToken,
     expiresAt: Date.now() + res.expiresIn * 1000,
   };
 }
 
 /**
- * 포스 로그인 시도.
- * - 성공(STORE 계정): 세션 저장 후 반환
- * - 자격증명 오류(400/401) 또는 STORE 가 아닌 계정: null 반환 (LoginPage 가 오류 표시)
- * - 그 외(네트워크/타임아웃/5xx): ApiError 를 그대로 throw (LoginPage 가 연결 오류 표시)
+ * 로그인 시도 (관리자·포스 공통 — POST /api/auth/login).
+ * - 성공: 세션 저장 후 반환. 호출부가 session.role 로 화면을 분기한다.
+ * - 자격증명 오류(400/401): null 반환 (로그인 화면이 "아이디/비밀번호 오류" 표시)
+ * - 그 외(네트워크/타임아웃/5xx): ApiError 를 그대로 throw (로그인 화면이 연결 오류 표시)
  */
 export async function login(username: string, password: string): Promise<Session | null> {
   try {
     const res = await authApi.login(username.trim(), password);
-    const session = toStoreSession(res);
-    if (!session) return null; // ADMIN 계정 등 — 포스에서는 로그인 불가
+    const session = toSession(res);
+    if (!session) return null;
     saveSession(session);
     return session;
   } catch (e) {
@@ -46,11 +49,11 @@ export async function login(username: string, password: string): Promise<Session
   }
 }
 
-/** 현재 토큰 유효성 확인 + 매장정보 갱신. 실패 시 세션 제거 후 null */
+/** 현재 토큰 유효성 확인 + 세션 갱신. 실패 시 세션 제거 후 null */
 export async function refreshMe(): Promise<Session | null> {
   try {
     const res = await authApi.me();
-    const session = toStoreSession(res);
+    const session = toSession(res);
     if (!session) {
       clearSession();
       return null;

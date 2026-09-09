@@ -1,52 +1,10 @@
 /**
- * 운영자(서비스 모니터링 관리자) 세션.
+ * 운영자(서비스 모니터링 관리자) 로컬 상태 — 관리 매장 목록.
  *
- * 주점 로그인(백엔드 JWT)과 별개로, 운영자 계정은 백엔드가 없어 프론트에서 검증한다.
- * 로그인 성공 시 localStorage 에 운영자 세션 플래그를 저장한다.
- * (주의: 클라이언트 검증이라 자격증명이 번들에 포함된다. 운영 배포 전 백엔드 인증으로 대체 권장.)
+ * 운영자 인증은 주점 POS 와 동일하게 백엔드 JWT(POST /api/auth/login, role=ADMIN)를 쓴다.
+ * (세션은 lib/session.ts, 로그인은 lib/auth.ts 참조)
  */
-const OPERATOR_KEY = "operator_session";
 const WATCH_KEY = "operator_watch_stores";
-
-/** 운영자 자격증명 (요청에 따라 하드코딩) */
-const OPERATOR_USERNAME = "likelion_LPAY";
-const OPERATOR_PASSWORD = "eulji02140214";
-
-/** 세션 유효기간 12시간 */
-const TTL_MS = 12 * 60 * 60 * 1000;
-
-export interface OperatorSession {
-  loggedInAt: number;
-  expiresAt: number;
-}
-
-/** 자격증명 검증 후 세션 저장. 실패 시 false. */
-export function operatorLogin(username: string, password: string): boolean {
-  if (username.trim() !== OPERATOR_USERNAME || password !== OPERATOR_PASSWORD) return false;
-  const now = Date.now();
-  const session: OperatorSession = { loggedInAt: now, expiresAt: now + TTL_MS };
-  localStorage.setItem(OPERATOR_KEY, JSON.stringify(session));
-  return true;
-}
-
-export function getOperatorSession(): OperatorSession | null {
-  try {
-    const raw = localStorage.getItem(OPERATOR_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as OperatorSession;
-    if (!s || typeof s.expiresAt !== "number" || Date.now() >= s.expiresAt) {
-      localStorage.removeItem(OPERATOR_KEY);
-      return null;
-    }
-    return s;
-  } catch {
-    return null;
-  }
-}
-
-export function operatorLogout(): void {
-  localStorage.removeItem(OPERATOR_KEY);
-}
 
 /* ── 관리 매장 목록 (localStorage 영속) ── */
 

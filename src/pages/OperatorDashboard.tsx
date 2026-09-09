@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { operatorLogout } from "@/lib/operator";
+import { logout as authLogout } from "@/lib/auth";
 import OverviewTab from "@/pages/operator/OverviewTab";
 import StoreListTab from "@/pages/operator/StoreListTab";
 import StoreRegisterTab from "@/pages/operator/StoreRegisterTab";
@@ -23,7 +23,7 @@ export default function OperatorDashboard() {
   const [qrStoreId, setQrStoreId] = useState<string | undefined>(undefined);
 
   const logout = () => {
-    operatorLogout();
+    authLogout();
     navigate("/operator/login", { replace: true });
   };
 
