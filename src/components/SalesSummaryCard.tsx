@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { salesApi } from "@/lib/endpoints";
-import type { SalesSummaryResponse } from "@/lib/dto";
+import type { OrderResponse, SalesSummaryResponse } from "@/lib/dto";
 import { ApiError } from "@/lib/api";
 import { formatKRW } from "@/lib/types";
-
-interface Props {
-  storeId: string;
-}
 
 /** 오늘 날짜(Asia/Seoul) 를 YYYY-MM-DD 로 */
 const todaySeoul = (): string =>
@@ -23,6 +19,7 @@ const toRows = (s: SalesSummaryResponse): (string | number)[][] => [
   ["항목", "값"],
   ["날짜", s.date],
   ["총 매출", s.totalSales],
+  ["누적 매출", s.cumulativeSales],
   ["현장 주문 매출", s.dineInSales],
   ["포장 주문 매출", s.takeoutSales],
   ["총 주문 건수", s.orderCount],
@@ -44,34 +41,66 @@ const triggerDownload = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-export default function SalesSummaryCard({ storeId }: Props) {
+export default function SalesSummaryCard() {
   // 빈 값 = 오늘(Asia/Seoul). date input 은 항상 값을 요구하므로 오늘로 초기화.
   const [date, setDate] = useState<string>(todaySeoul());
   const [summary, setSummary] = useState<SalesSummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (d: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        // 오늘이면 date 파라미터 생략 → 서버 기준 오늘(Asia/Seoul)
-        const query = d && d !== todaySeoul() ? d : undefined;
-        setSummary(await salesApi.summary(storeId, query));
-      } catch (e) {
-        setError(e instanceof ApiError ? e.message : "매출을 불러오지 못했습니다.");
-        setSummary(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [storeId],
-  );
+  // 누적 주문 내역 (GET /api/pos/sales/orders)
+  const [orders, setOrders] = useState<OrderResponse[] | null>(null);
+  const [ordersOpen, setOrdersOpen] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const load = useCallback(async (d: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 오늘이면 date 파라미터 생략 → 서버 기준 오늘(Asia/Seoul)
+      const query = d && d !== todaySeoul() ? d : undefined;
+      setSummary(await salesApi.summary(query));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "매출을 불러오지 못했습니다.");
+      setSummary(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     load(todaySeoul());
   }, [load]);
+
+  const loadOrders = async () => {
+    if (ordersOpen) {
+      setOrdersOpen(false);
+      return;
+    }
+    setOrdersOpen(true);
+    if (orders) return;
+    setOrdersLoading(true);
+    try {
+      setOrders(await salesApi.orders());
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "주문 내역을 불러오지 못했습니다.");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const exportServerCsv = async () => {
+    setExporting(true);
+    try {
+      const { blob, filename } = await salesApi.exportCsv();
+      triggerDownload(blob, filename || `매출내역_${todaySeoul()}.csv`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "CSV 내보내기에 실패했습니다.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const exportCsv = () => {
     if (!summary) return;
@@ -81,13 +110,11 @@ export default function SalesSummaryCard({ storeId }: Props) {
         r
           .map((cell) => {
             const v = String(cell);
-            // 콤마·따옴표·개행 포함 시 큰따옴표로 감싸고 이스케이프
             return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
           })
           .join(","),
       )
       .join("\r\n");
-    // Excel 한글 깨짐 방지 UTF-8 BOM
     const blob = new Blob(["﻿" + body], { type: "text/csv;charset=utf-8;" });
     triggerDownload(blob, `매출요약_${summary.date}.csv`);
   };
@@ -140,14 +167,18 @@ export default function SalesSummaryCard({ storeId }: Props) {
               <div className="admin__stat-value">{formatKRW(summary.takeoutSales)}</div>
             </div>
             <div className="admin__stat">
+              <div className="admin__stat-label">누적 매출</div>
+              <div className="admin__stat-value admin__stat-value--accent">
+                {formatKRW(summary.cumulativeSales)}
+              </div>
+            </div>
+            <div className="admin__stat">
               <div className="admin__stat-label">총 주문 건수</div>
               <div className="admin__stat-value">{summary.orderCount.toLocaleString("ko-KR")}건</div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">평균 객단가</div>
-              <div className="admin__stat-value admin__stat-value--accent">
-                {formatKRW(summary.avgOrderPrice)}
-              </div>
+              <div className="admin__stat-value">{formatKRW(summary.avgOrderPrice)}</div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">현장 / 포장 건수</div>
@@ -165,12 +196,32 @@ export default function SalesSummaryCard({ storeId }: Props) {
           <div className="sales-summary__export">
             <span className="sales-summary__export-label">내보내기</span>
             <button className="btn btn--sm" onClick={exportCsv}>
-              CSV
+              요약 CSV
             </button>
             <button className="btn btn--sm" onClick={exportXlsx}>
-              XLSX
+              요약 XLSX
+            </button>
+            <button className="btn btn--sm" onClick={exportServerCsv} disabled={exporting}>
+              {exporting ? "내보내는 중…" : "전체 주문내역 CSV"}
+            </button>
+            <button className="btn btn--sm" onClick={loadOrders} disabled={ordersLoading}>
+              {ordersOpen ? "주문 내역 접기" : ordersLoading ? "불러오는 중…" : "주문 내역 보기"}
             </button>
           </div>
+
+          {ordersOpen && orders && (
+            <ul className="menu-list sales-summary__orders">
+              {orders.length === 0 && <li className="menu-list__empty">주문 내역이 없습니다</li>}
+              {orders.map((o) => (
+                <li className="menu-row" key={o.id}>
+                  <span className="field--grow">
+                    {o.orderTypeLabel} · {o.tableName ?? o.pickupNo ?? `#${o.id}`} · {o.statusLabel}
+                  </span>
+                  <span>{formatKRW(o.totalPrice)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       ) : (
         !loading && !error && <p className="sales-summary__empty">조회된 매출이 없습니다.</p>

@@ -54,6 +54,7 @@ export default function PosApp({ storeId, storeName }: Props) {
   const [account, setAccount] = useState<SettlementAccount>({ bank: "", number: "", holder: "" });
   const [tableCount, setTableCountState] = useState<number>(0);
   const [sales, setSales] = useState<SalesSummaryResponse | null>(null);
+  const [storeOpen, setStoreOpen] = useState<boolean>(true);
 
   const [selected, setSelected] = useState<Table | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
@@ -93,31 +94,31 @@ export default function PosApp({ storeId, storeName }: Props) {
   const reloadTablesAndOrders = useCallback(async () => {
     try {
       const [tsList, orders] = await Promise.all([
-        tableStatusApi.list(storeId),
-        orderApi.list(storeId),
+        tableStatusApi.list(),
+        orderApi.list(),
       ]);
       const numMap = applyTableStatus(tsList);
       setWaiting(orders.filter(isActiveWaiting).map((o) => toWaitingOrder(o, numMap)));
     } catch (e) {
       handleError(e, "주문 현황을 불러오지 못했습니다.");
     }
-  }, [storeId, applyTableStatus, handleError]);
+  }, [applyTableStatus, handleError]);
 
   const reloadTables = useCallback(async () => {
     try {
-      applyTableStatus(await tableStatusApi.list(storeId));
+      applyTableStatus(await tableStatusApi.list());
     } catch (e) {
       handleError(e, "테이블 현황을 불러오지 못했습니다.");
     }
-  }, [storeId, applyTableStatus, handleError]);
+  }, [applyTableStatus, handleError]);
 
   const reloadSales = useCallback(async () => {
     try {
-      setSales(await salesApi.summary(storeId));
+      setSales(await salesApi.summary());
     } catch (e) {
       handleError(e, "매출 요약을 불러오지 못했습니다.");
     }
-  }, [storeId, handleError]);
+  }, [handleError]);
 
   /** 최초 전체 로드 */
   useEffect(() => {
@@ -126,12 +127,12 @@ export default function PosApp({ storeId, storeName }: Props) {
       setLoading(true);
       try {
         const [store, cats, menus, tsList, orders, summary] = await Promise.all([
-          storeApi.get(storeId),
-          categoryApi.list(storeId),
-          menuApi.list(storeId),
-          tableStatusApi.list(storeId),
-          orderApi.list(storeId),
-          salesApi.summary(storeId),
+          storeApi.get(),
+          categoryApi.list(),
+          menuApi.list(),
+          tableStatusApi.list(),
+          orderApi.list(),
+          salesApi.summary(),
         ]);
         if (!alive) return;
         setCategories(cats);
@@ -141,6 +142,7 @@ export default function PosApp({ storeId, storeName }: Props) {
         setWaiting(orders.filter(isActiveWaiting).map((o) => toWaitingOrder(o, numMap)));
         setAccount(toSettlementAccount(store));
         setTableCountState(store.tableCount);
+        setStoreOpen(store.open);
         setSales(summary);
       } catch (e) {
         if (alive) handleError(e, "데이터를 불러오지 못했습니다. 서버 연결을 확인해 주세요.");
@@ -151,7 +153,7 @@ export default function PosApp({ storeId, storeName }: Props) {
     return () => {
       alive = false;
     };
-  }, [storeId, applyTableStatus, handleError]);
+  }, [applyTableStatus, handleError]);
 
   // 시계 갱신 (경과시간 라이브 반영)
   useEffect(() => {
@@ -182,27 +184,27 @@ export default function PosApp({ storeId, storeName }: Props) {
    */
   const setStage = async (id: string, stage: WaitStage) => {
     try {
-      await orderApi.setStatus(storeId, Number(id), stageToStatus(stage));
+      await orderApi.setStatus(Number(id), stageToStatus(stage));
       await reloadTablesAndOrders();
     } catch (e) {
       handleError(e, "주문 상태를 변경하지 못했습니다.");
     }
   };
 
-  /** 주문 취소 (PATCH .../orders/{id}/status → CANCELED). 매출 요약에도 반영. */
+  /** 주문 취소 (PATCH /api/pos/orders/{id}/status → CANCELED). 매출 요약에도 반영. */
   const cancelOrder = async (id: string) => {
     try {
-      await orderApi.setStatus(storeId, Number(id), "CANCELED");
+      await orderApi.setStatus(Number(id), "CANCELED");
       await Promise.all([reloadTablesAndOrders(), reloadSales()]);
     } catch (e) {
       handleError(e, "주문을 취소하지 못했습니다.");
     }
   };
 
-  /** 테이블 정리 (POST .../tables/{id}/clear) */
+  /** 테이블 정리 (POST /api/pos/tables/{id}/clear) */
   const clearTable = async (tableId: number) => {
     try {
-      await tableApi.clear(storeId, tableId);
+      await tableApi.clear(tableId);
       await Promise.all([reloadTablesAndOrders(), reloadSales()]);
     } catch (e) {
       handleError(e, "테이블을 정리하지 못했습니다.");
@@ -212,16 +214,27 @@ export default function PosApp({ storeId, storeName }: Props) {
   /** 직원 호출 해제 — 테이블의 진행중(CALLED) 호출을 모두 RESOLVED 처리 */
   const resolveStaffCall = async (tableId: number) => {
     try {
-      const active = await staffCallApi.list(storeId, true);
-      const targets = active.filter((c) => c.tableId === tableId);
+      const calls = await staffCallApi.list();
+      const targets = calls.filter((c) => c.tableId === tableId && c.status === "CALLED");
       if (targets.length === 0) {
         await reloadTables();
         return;
       }
-      await Promise.all(targets.map((c) => staffCallApi.resolve(storeId, c.id)));
+      await Promise.all(targets.map((c) => staffCallApi.resolve(c.id)));
       await reloadTables();
     } catch (e) {
       handleError(e, "직원 호출을 해제하지 못했습니다.");
+    }
+  };
+
+  /** 영업 개폐 (PATCH /api/pos/store/open) */
+  const toggleStoreOpen = async () => {
+    const next = !storeOpen;
+    try {
+      const store = await storeApi.setOpen(next);
+      setStoreOpen(store.open);
+    } catch (e) {
+      handleError(e, "영업 상태를 변경하지 못했습니다.");
     }
   };
 
@@ -232,22 +245,16 @@ export default function PosApp({ storeId, storeName }: Props) {
    */
   const setTableCount = async (count: number) => {
     try {
-      const result = await tableApi.bulk(storeId, count);
-      // 응답에 tableCount 가 없을 수 있으니 tables 길이 → 요청값 순으로 폴백
-      const next = result?.tableCount ?? result?.tables?.length ?? count;
-      setTableCountState(next);
+      // 응답은 전체 테이블 목록(TableResponse[]).
+      const tables = await tableApi.bulk(count);
+      setTableCountState(Array.isArray(tables) ? tables.length : count);
       await reloadTablesAndOrders();
     } catch (e) {
       handleError(e, "테이블 개수를 변경하지 못했습니다.");
     }
   };
 
-  const addMenuItem = async (
-    name: string,
-    price: number,
-    category: MenuCategory,
-    imageFile?: File,
-  ) => {
+  const addMenuItem = async (name: string, price: number, category: MenuCategory) => {
     try {
       const idByName = categoryIdByName(categories);
       const categoryId = idByName.get(category) ?? categories[0]?.id;
@@ -255,18 +262,17 @@ export default function PosApp({ storeId, storeName }: Props) {
         setNotice("카테고리가 없어 메뉴를 추가할 수 없습니다.");
         return;
       }
-      // 이미지가 있으면 먼저 업로드해 URL 을 받고, 생성 요청에 포함한다.
-      const imageUrl = imageFile
-        ? (await menuApi.uploadImage(storeId, imageFile)).imageUrl
-        : undefined;
-      const created = await menuApi.create(storeId, { categoryId, name, price, imageUrl });
+      const created = await menuApi.create({ categoryId, name, price });
       setMenu((prev) => [...prev, toMenuItem(created, categoryNameMap(categories))]);
     } catch (e) {
       handleError(e, "메뉴를 추가하지 못했습니다.");
     }
   };
 
-  const updateMenuItem = async (id: string, patch: Partial<Omit<MenuItem, "id" | "image">>) => {
+  const updateMenuItem = async (
+    id: string,
+    patch: Partial<Omit<MenuItem, "id" | "image" | "soldOut">>,
+  ) => {
     const apiPatch: { name?: string; price?: number; categoryId?: number } = {};
     if (patch.name !== undefined) apiPatch.name = patch.name;
     if (patch.price !== undefined) apiPatch.price = patch.price;
@@ -276,7 +282,7 @@ export default function PosApp({ storeId, storeName }: Props) {
     }
     if (Object.keys(apiPatch).length === 0) return;
     try {
-      const updated = await menuApi.update(storeId, Number(id), apiPatch);
+      const updated = await menuApi.update(Number(id), apiPatch);
       setMenu((prev) =>
         prev.map((m) => (m.id === id ? toMenuItem(updated, categoryNameMap(categories)) : m)),
       );
@@ -285,22 +291,21 @@ export default function PosApp({ storeId, storeName }: Props) {
     }
   };
 
-  /** 메뉴 이미지 업로드/제거 (file=null → 제거). 서버에 imageUrl PATCH. */
-  const setMenuImage = async (id: string, file: File | null) => {
+  /** 품절 토글 (PATCH /api/pos/menus/{id}/sold-out) */
+  const toggleSoldOut = async (id: string, soldOut: boolean) => {
     try {
-      const imageUrl = file ? (await menuApi.uploadImage(storeId, file)).imageUrl : null;
-      const updated = await menuApi.update(storeId, Number(id), { imageUrl });
+      const updated = await menuApi.setSoldOut(Number(id), soldOut);
       setMenu((prev) =>
         prev.map((m) => (m.id === id ? toMenuItem(updated, categoryNameMap(categories)) : m)),
       );
     } catch (e) {
-      handleError(e, "메뉴 이미지를 저장하지 못했습니다.");
+      handleError(e, "품절 상태를 변경하지 못했습니다.");
     }
   };
 
   const deleteMenuItem = async (id: string) => {
     try {
-      await menuApi.remove(storeId, Number(id));
+      await menuApi.remove(Number(id));
       setMenu((prev) => prev.filter((m) => m.id !== id));
     } catch (e) {
       handleError(e, "메뉴를 삭제하지 못했습니다.");
@@ -309,7 +314,7 @@ export default function PosApp({ storeId, storeName }: Props) {
 
   const saveAccount = async (acc: SettlementAccount) => {
     try {
-      const store = await storeApi.update(storeId, {
+      const store = await storeApi.update({
         bankName: acc.bank,
         accountNumber: acc.number,
         accountHolder: acc.holder,
@@ -340,6 +345,8 @@ export default function PosApp({ storeId, storeName }: Props) {
       <Header
         storeName={storeName}
         todaySales={todaySales}
+        storeOpen={storeOpen}
+        onToggleOpen={toggleStoreOpen}
         activeTab={tab}
         onTabChange={setTab}
         onRefresh={refresh}
@@ -379,13 +386,12 @@ export default function PosApp({ storeId, storeName }: Props) {
       ) : (
         <div className="app__body">
           <AdminPanel
-            storeId={storeId}
             tableCount={tableCount}
             onTableCountChange={setTableCount}
             menu={menu}
             onAddMenu={addMenuItem}
             onUpdateMenu={updateMenuItem}
-            onSetMenuImage={setMenuImage}
+            onToggleSoldOut={toggleSoldOut}
             onDeleteMenu={deleteMenuItem}
             account={account}
             onSaveAccount={saveAccount}

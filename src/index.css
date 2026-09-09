@@ -1668,6 +1668,32 @@ button {
   gap: var(--space-sm);
 }
 
+/* 헤더 영업 개폐 토글 */
+.header__open-toggle {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 품절 메뉴 행 */
+.menu-row--soldout .field--grow,
+.menu-row--soldout .field--price {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+/* 누적 주문 내역 (매출 요약 카드) */
+.sales-summary__orders {
+  margin-top: var(--space-md);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.sales-summary__orders .menu-row {
+  justify-content: space-between;
+  font: var(--font-caption);
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
 /* 인쇄: 화면 전용 요소 숨김 */
 @media print {
   .op__no-print {

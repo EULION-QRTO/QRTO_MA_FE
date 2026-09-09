@@ -8,30 +8,35 @@
  */
 import { authApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
+import type { LoginResponse } from "@/lib/dto";
 import { saveSession, clearSession, getSession, type Session } from "@/lib/session";
 
 export type { Session } from "@/lib/session";
 export { getSession } from "@/lib/session";
 
-function toSession(res: { accessToken: string; expiresIn: number; storeId: number; storeName: string }): Session {
+/** STORE 응답만 포스 세션으로 변환. ADMIN·매장 없는 응답이면 null. */
+function toStoreSession(res: LoginResponse): Session | null {
+  if (res.role !== "STORE" || res.storeId == null) return null;
   return {
     storeId: String(res.storeId),
-    storeName: res.storeName,
+    storeName: res.storeName ?? "",
+    role: "STORE",
     accessToken: res.accessToken,
     expiresAt: Date.now() + res.expiresIn * 1000,
   };
 }
 
 /**
- * 로그인 시도.
- * - 성공: 세션 저장 후 반환
- * - 자격증명 오류(400/401): null 반환 (LoginPage 가 "아이디/비밀번호 오류" 표시)
+ * 포스 로그인 시도.
+ * - 성공(STORE 계정): 세션 저장 후 반환
+ * - 자격증명 오류(400/401) 또는 STORE 가 아닌 계정: null 반환 (LoginPage 가 오류 표시)
  * - 그 외(네트워크/타임아웃/5xx): ApiError 를 그대로 throw (LoginPage 가 연결 오류 표시)
  */
 export async function login(username: string, password: string): Promise<Session | null> {
   try {
     const res = await authApi.login(username.trim(), password);
-    const session = toSession(res);
+    const session = toStoreSession(res);
+    if (!session) return null; // ADMIN 계정 등 — 포스에서는 로그인 불가
     saveSession(session);
     return session;
   } catch (e) {
@@ -45,7 +50,11 @@ export async function login(username: string, password: string): Promise<Session
 export async function refreshMe(): Promise<Session | null> {
   try {
     const res = await authApi.me();
-    const session = toSession(res);
+    const session = toStoreSession(res);
+    if (!session) {
+      clearSession();
+      return null;
+    }
     saveSession(session);
     return session;
   } catch {

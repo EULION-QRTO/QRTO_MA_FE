@@ -5,7 +5,7 @@
  * 저장돼 즉시 동작하고, 서버 API 가 배포되면 자동으로 서버에 저장/로드된다.
  * (try 서버 → 실패 시 로컬 폴백)
  */
-import { storeAdminApi } from "./endpoints";
+import { adminApi } from "./endpoints";
 import { ApiError } from "./api";
 import {
   getManagedStores,
@@ -47,10 +47,10 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
   setManagedStores([...getManagedStores(), draft]);
 
   // 2) 서버 저장 시도 (자격증명 포함 → 서버가 계정 생성/해시)
+  //    org(운영단체)는 v2 API 에 필드가 없어 로컬 메타로만 보관한다.
   try {
-    const created = await storeAdminApi.create({
+    const created = await adminApi.stores.create({
       name: input.name,
-      org: input.org,
       takeoutEnabled: input.takeoutEnabled,
       username: input.username,
       password: input.password,
@@ -83,7 +83,7 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
 export async function syncStoresFromServer(): Promise<ManagedStore[] | null> {
   let server: ManagedStore[];
   try {
-    const list = await storeAdminApi.list();
+    const list = await adminApi.stores.list();
     server = list.map((s) => ({
       id: String(s.id),
       name: s.name,

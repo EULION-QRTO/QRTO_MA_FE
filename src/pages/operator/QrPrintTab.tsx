@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { tableApi, storeApi } from "@/lib/endpoints";
+import { adminApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 import { getManagedStores } from "@/lib/operator";
 
@@ -63,7 +63,7 @@ export default function QrPrintTab({ initialStoreId }: Props) {
     Promise.all(
       managed.map(async (m): Promise<StoreDirEntry> => {
         try {
-          const s = await storeApi.get(m.id);
+          const s = await adminApi.stores.get(m.id);
           return { id: m.id, name: s.name ?? m.name };
         } catch {
           return { id: m.id, name: m.name };
@@ -94,17 +94,17 @@ export default function QrPrintTab({ initialStoreId }: Props) {
     revokeAll();
     setData(null);
     try {
-      const tables = await tableApi.list(storeId);
+      const tables = await adminApi.tables.list(storeId);
       const tableQrs = await Promise.all(
         tables.map(async (t) => {
-          const url = await tableApi.qrImageUrl(storeId, t.id);
+          const url = await adminApi.tables.qrImageUrl(storeId, t.id);
           urlsRef.current.push(url);
           return { id: t.id, name: t.name, url };
         }),
       );
       let togoUrl: string | null = null;
       try {
-        togoUrl = await tableApi.pickupQrImageUrl(storeId);
+        togoUrl = await adminApi.pickupQrImageUrl(storeId);
         urlsRef.current.push(togoUrl);
       } catch {
         togoUrl = null; // TOGO 미사용 매장 등
