@@ -74,6 +74,8 @@ body {
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iPad Safari: 화면 전체가 고무줄처럼 튕기는 것 방지 (스크롤은 그리드 내부에서) */
+  overscroll-behavior: none;
 }
 
 button {
@@ -81,6 +83,9 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  /* iPad 터치: 탭 시 회색 플래시 제거 + 300ms 지연/더블탭 확대 방지 */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* =========================================================
@@ -90,14 +95,16 @@ button {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .app__body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 68fr) minmax(300px, 32fr);
+  /* 사이드바는 화면폭에 비례하되 296~360px 로 묶어 11" 아이패드에서 그리드 폭을 확보 */
+  grid-template-columns: minmax(0, 1fr) clamp(296px, 27vw, 360px);
   gap: var(--space-md);
   padding: var(--space-md);
 }
@@ -273,14 +280,16 @@ button {
   display: flex;
   align-items: baseline;
   gap: var(--space-sm);
-  padding: 0 var(--space-xs) var(--space-md);
+  padding: 0 var(--space-xs) var(--space-sm);
 }
 .main__title {
   font: var(--font-title);
 }
 .main__meta {
+  margin-left: auto;
   font: var(--font-caption);
   color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 .main__loading {
   font: var(--font-caption);
@@ -298,45 +307,59 @@ button {
   font: var(--font-caption);
 }
 
+/*
+ * 테이블 그리드 — 최소 32테이블(이상) · 11" 아이패드 가로 기준 고밀도 배치.
+ * auto-fill + 작은 최소폭으로 가로에서 6~7열, 세로에서 4열이 자동으로 잡힌다.
+ */
 .table-grid {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  /* 모든 행 높이를 균일하게. 내용이 넘치면 그 행만 늘어남 */
+  grid-auto-rows: minmax(94px, auto);
+  gap: var(--space-sm);
   align-content: start;
   padding-bottom: var(--space-md);
+  /* iPad Safari: 그리드 안에서만 스크롤, 관성 스크롤 유지 */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-block: var(--space-sm);
 }
 
 .table-card {
   position: relative;
-  aspect-ratio: 4 / 3;
   display: flex;
   flex-direction: column;
-  padding: var(--space-md);
-  border-radius: var(--radius-card);
+  gap: 2px;
+  padding: var(--space-sm);
+  border-radius: 14px;
   background: var(--color-surface-muted);
   text-align: left;
   overflow: hidden;
-  transition: transform 0.12s, box-shadow 0.12s;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.1s ease;
 }
 .table-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
+/* 빈 테이블 — 차분하게(연회색+테두리), 번호만 크게. 사용중 카드가 도드라지도록. */
 .table-card--empty {
-  background: var(--color-state-empty);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
   align-items: center;
   justify-content: center;
   cursor: default;
 }
 .table-card--empty .table-card__num {
-  font: var(--font-display);
-  color: #ffffff;
-  opacity: 0.85;
+  font: 700 clamp(22px, 3.2vw, 30px) / 1 var(--font-sans);
+  color: var(--color-text-secondary);
 }
 
+/* 사용중 — 오렌지 톤 + 좌측 바 + 그림자로 강조 */
 .table-card--occupied {
   background: var(--color-state-occupied-bg);
   box-shadow: var(--shadow-card);
@@ -347,7 +370,7 @@ button {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: 5px;
   background: var(--color-primary);
 }
 
@@ -355,76 +378,82 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: var(--space-xs);
 }
 .table-card__num {
-  font: var(--font-title);
+  font: 700 18px / 1.2 var(--font-sans);
 }
 .table-card__time {
-  font: var(--font-caption);
+  font: 400 12px / 1.3 var(--font-sans);
   color: var(--color-text-secondary);
-}
-.table-card__time--warning {
-  color: var(--color-state-warning);
-  font-weight: 700;
+  flex-shrink: 0;
 }
 .table-card__preview {
-  margin-top: var(--space-sm);
-  font: var(--font-body);
-  color: var(--color-text-primary);
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .table-card__total {
   margin-top: auto;
   text-align: right;
-  font: var(--font-title);
+  font: 700 15px / 1.2 var(--font-sans);
   color: var(--color-primary);
 }
 .table-card__warn-badge {
   position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  padding: 2px 8px;
+  top: 5px;
+  right: 5px;
+  padding: 2px 7px;
   border-radius: var(--radius-chip);
   background: var(--color-state-warning);
   color: #fff;
   font: var(--font-badge);
 }
 
-/* 직원 호출 배지 — 사용중/빈 테이블 공통. 탭하면 호출 해제 */
+/*
+ * 직원 호출 — 카드 상단 전체를 덮는 깜빡이는 오렌지 스트립(탭하면 해제).
+ * 번호/내용과 겹치지 않도록 --calling 카드는 위쪽 패딩을 확보한다.
+ */
 .table-card__call-badge {
   position: absolute;
-  top: var(--space-sm);
-  left: var(--space-sm);
-  z-index: 1;
-  padding: 2px 10px;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px;
   border: none;
-  border-radius: var(--radius-chip);
+  border-radius: 13px 13px 0 0;
   background: var(--color-primary);
   color: #fff;
   font: var(--font-badge);
   cursor: pointer;
-  box-shadow: 0 0 0 0 rgba(255, 107, 44, 0.6);
-  animation: staff-call-pulse 1.2s ease-out infinite;
+  animation: staff-call-blink 1.1s step-end infinite;
 }
 
-/* 호출이 온 테이블 카드 전체를 강조 */
 .table-card--calling {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
+  padding-top: 22px;
+}
+.table-card--calling .table-card__warn-badge {
+  top: 24px;
 }
 
-@keyframes staff-call-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 107, 44, 0.55);
+@keyframes staff-call-blink {
+  50% {
+    opacity: 0.45;
   }
-  70% {
-    box-shadow: 0 0 0 10px rgba(255, 107, 44, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 107, 44, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-card__call-badge {
+    animation: none;
   }
 }
 
@@ -1157,12 +1186,36 @@ button {
 /* =========================================================
    반응형 (DESIGN.md §5)
    ========================================================= */
+/* 11" 아이패드 가로처럼 화면이 낮으면 행을 더 낮게 → 스크롤 없이 더 많은 행 노출 */
+@media (orientation: landscape) and (max-height: 920px) {
+  .table-grid {
+    grid-auto-rows: minmax(86px, auto);
+  }
+}
+
+/* 아이패드 세로 / 축소창 */
 @media (max-width: 1023px) {
+  .header {
+    flex-wrap: wrap;
+    row-gap: var(--space-sm);
+  }
+  .header__brand {
+    flex-shrink: 0;
+  }
+  .header__logo,
+  .header__store {
+    white-space: nowrap;
+  }
+  .segmented__tab {
+    white-space: nowrap;
+    padding: 0 var(--space-md);
+  }
   .app__body {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 300px);
+    grid-template-columns: minmax(0, 1fr) clamp(272px, 34vw, 320px);
   }
   .table-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-auto-rows: minmax(88px, auto);
   }
 }
 
