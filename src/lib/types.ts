@@ -16,6 +16,8 @@ export interface MenuItem {
   name: string;
   price: number;
   category: MenuCategory;
+  /** 품절 여부 */
+  soldOut: boolean;
   /** 선택 첨부 이미지 (서버 imageUrl 을 절대 URL 로 변환한 값) */
   image?: string;
 }

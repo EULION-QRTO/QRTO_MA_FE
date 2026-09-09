@@ -115,6 +115,7 @@ export function toMenuItem(m: MenuResponse, categoryNameById: Map<number, string
     name: m.name,
     price: m.price,
     category: toMenuCategory(categoryNameById.get(m.categoryId)),
+    soldOut: m.soldOut,
     image: resolveAssetUrl(m.imageUrl),
   };
 }

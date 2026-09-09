@@ -1,4 +1,4 @@
-import { storeApi, salesApi, tableStatusApi, orderApi } from "@/lib/endpoints";
+import { adminApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 
 /** 진행 중으로 볼 주문 상태 */
@@ -22,10 +22,10 @@ export interface StoreSnapshot {
 export async function fetchSnapshot(id: string): Promise<StoreSnapshot> {
   try {
     const [store, summary, tables, orders] = await Promise.all([
-      storeApi.get(id),
-      salesApi.summary(id),
-      tableStatusApi.list(id),
-      orderApi.list(id),
+      adminApi.stores.get(id),
+      adminApi.sales.summary(id),
+      adminApi.tableStatus(id),
+      adminApi.orders(id),
     ]);
     return {
       id,

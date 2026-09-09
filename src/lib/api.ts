@@ -1,9 +1,9 @@
 /**
  * HTTP 코어. 모든 REST 호출은 여기를 거친다.
  *
- * - baseURL: config.API_BASE_URL (기본 http://localhost:8080)
+ * - baseURL: config.API_BASE_URL (= https://api.lapy.shop)
  * - 인증: 세션 토큰을 Authorization: Bearer 헤더로 자동 주입
- * - 응답 envelope { success, data, error } 를 벗겨 data 만 반환
+ * - 응답 envelope { success, data, error } 를 벗겨 data 만 반환 (PNG·CSV 는 envelope 없음)
  * - 실패 시 ApiError(code, message, status) throw
  */
 import { API_BASE_URL } from "./config";
@@ -130,6 +130,33 @@ export async function fetchImageObjectUrl(path: string): Promise<string> {
   if (!res.ok) throw new ApiError(String(res.status), "이미지 요청 실패", res.status);
   const blob = await res.blob();
   return URL.createObjectURL(blob);
+}
+
+/**
+ * 파일 다운로드(CSV 등). envelope 없음. 인증 헤더를 싣고 Blob + 파일명을 반환한다.
+ * Content-Disposition 의 filename* / filename 을 파싱하고, 없으면 fallback 사용.
+ */
+export async function fetchFile(
+  path: string,
+  opts: { query?: RequestOptions["query"]; fallbackName?: string } = {},
+): Promise<{ blob: Blob; filename: string }> {
+  const token = getToken();
+  const res = await fetch(buildUrl(path, opts.query), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (res.status === 401) clearSession();
+  if (!res.ok) throw new ApiError(String(res.status), "파일 요청 실패", res.status);
+  const cd = res.headers.get("Content-Disposition") ?? "";
+  const star = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+  const plain = cd.match(/filename="?([^";]+)"?/i);
+  let filename = opts.fallbackName ?? "download.csv";
+  try {
+    if (star) filename = decodeURIComponent(star[1].trim());
+    else if (plain) filename = plain[1].trim();
+  } catch {
+    /* 파일명 파싱 실패 시 fallback 유지 */
+  }
+  return { blob: await res.blob(), filename };
 }
 
 export const http = {

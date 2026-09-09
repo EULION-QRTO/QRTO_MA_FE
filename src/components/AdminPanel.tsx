@@ -8,91 +8,36 @@ import {
 } from "@/lib/types";
 import SalesSummaryCard from "@/components/SalesSummaryCard";
 
-const MIN_TABLES = 1;
-const MAX_TABLES = 60;
+const MIN_TABLES = 0;
+const MAX_TABLES = 100;
 
 interface Props {
-  storeId: string;
   tableCount: number;
   onTableCountChange: (count: number) => void;
   menu: MenuItem[];
-  onAddMenu: (name: string, price: number, category: MenuCategory, imageFile?: File) => void;
-  onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id" | "image">>) => void;
-  /** 메뉴 이미지 업로드/제거. file=null 이면 제거. */
-  onSetMenuImage: (id: string, file: File | null) => void;
+  onAddMenu: (name: string, price: number, category: MenuCategory) => void;
+  onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id" | "image" | "soldOut">>) => void;
+  /** 품절 토글 */
+  onToggleSoldOut: (id: string, soldOut: boolean) => void;
   onDeleteMenu: (id: string) => void;
   account: SettlementAccount;
   onSaveAccount: (account: SettlementAccount) => void;
 }
 
-function ImagePicker({
-  value,
-  onPick,
-  onClear,
-  label,
-}: {
-  value?: string;
-  onPick: (file: File) => void;
-  onClear?: () => void;
-  label: string;
-}) {
-  return (
-    <div className="thumb-wrap">
-      <label className="thumb" title={label} aria-label={label}>
-        {value ? (
-          <img src={value} alt="" className="thumb__img" />
-        ) : (
-          <span className="thumb__ph">📷</span>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          className="thumb__input"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onPick(file);
-            e.target.value = "";
-          }}
-        />
-      </label>
-      {value && onClear && (
-        <button type="button" className="thumb__clear" onClick={onClear} aria-label="사진 제거">
-          ✕
-        </button>
-      )}
-    </div>
-  );
-}
-
 export default function AdminPanel({
-  storeId,
   tableCount,
   onTableCountChange,
   menu,
   onAddMenu,
   onUpdateMenu,
-  onSetMenuImage,
+  onToggleSoldOut,
   onDeleteMenu,
   account,
   onSaveAccount,
 }: Props) {
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
-  const [newImageFile, setNewImageFile] = useState<File | undefined>(undefined);
-  const [newImagePreview, setNewImagePreview] = useState<string | undefined>(undefined);
   const [newCategory, setNewCategory] = useState<MenuCategory>(DEFAULT_MENU_CATEGORY);
-
-  // 새 메뉴 이미지 선택: 로컬 미리보기(objectURL) 생성 후 파일 보관
-  const pickNewImage = (file: File) => {
-    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
-    setNewImageFile(file);
-    setNewImagePreview(URL.createObjectURL(file));
-  };
-  const clearNewImage = () => {
-    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
-    setNewImageFile(undefined);
-    setNewImagePreview(undefined);
-  };
 
   // 정산 계좌 편집 초안 (저장 시 커밋)
   const [acctDraft, setAcctDraft] = useState<SettlementAccount>(account);
@@ -121,12 +66,10 @@ export default function AdminPanel({
     Number.isFinite(n) ? Math.min(MAX_TABLES, Math.max(MIN_TABLES, n)) : MIN_TABLES;
 
   // 테이블 스텝퍼: 로컬에서 자유롭게 조절하고 저장 시에만 서버 반영(bulk).
-  // 서버 왕복을 기다리지 않고 연속으로 늘리고 줄일 수 있다.
   const [localTableCount, setLocalTableCount] = useState(() => clamp(tableCount));
   const [tableSaved, setTableSaved] = useState(false);
   const tableDirty = localTableCount !== clamp(tableCount);
 
-  // 서버 값이 바뀌면 로컬 초안 동기화 (저장 완료 후 포함). NaN/undefined 방어.
   useEffect(() => {
     setLocalTableCount(clamp(tableCount));
   }, [tableCount]);
@@ -142,17 +85,16 @@ export default function AdminPanel({
     const name = newName.trim();
     const price = parseInt(newPrice, 10);
     if (!name || Number.isNaN(price) || price < 0) return;
-    onAddMenu(name, price, newCategory, newImageFile);
+    onAddMenu(name, price, newCategory);
     setNewName("");
     setNewPrice("");
-    clearNewImage();
     setNewCategory(DEFAULT_MENU_CATEGORY);
   };
 
   return (
     <div className="admin">
       {/* ── 매출 요약 (날짜 조회 · CSV/XLSX 내보내기) ── */}
-      <SalesSummaryCard storeId={storeId} />
+      <SalesSummaryCard />
 
       {/* ── 테이블 설정 ── */}
       <section className="admin-card">
@@ -188,7 +130,7 @@ export default function AdminPanel({
           <span className="admin-setting__hint">
             {tableSaved
               ? "✓ 저장되었습니다"
-              : "저장을 눌러야 서버와 POS 화면에 반영됩니다. 개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다."}
+              : "저장을 눌러야 서버와 POS 화면에 반영됩니다. 개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다. (0~100)"}
           </span>
         </div>
       </section>
@@ -257,12 +199,6 @@ export default function AdminPanel({
         </div>
 
         <div className="menu-add">
-          <ImagePicker
-            value={newImagePreview}
-            onPick={pickNewImage}
-            onClear={clearNewImage}
-            label="메뉴 사진 첨부 (선택)"
-          />
           <select
             className="field field--select"
             value={newCategory}
@@ -299,13 +235,7 @@ export default function AdminPanel({
         <ul className="menu-list">
           {menu.length === 0 && <li className="menu-list__empty">등록된 메뉴가 없습니다</li>}
           {menu.map((item) => (
-            <li className="menu-row" key={item.id}>
-              <ImagePicker
-                value={item.image}
-                onPick={(file) => onSetMenuImage(item.id, file)}
-                onClear={() => onSetMenuImage(item.id, null)}
-                label={`${item.name} 사진`}
-              />
+            <li className={`menu-row${item.soldOut ? " menu-row--soldout" : ""}`} key={item.id}>
               <select
                 className="field field--select"
                 value={item.category}
@@ -337,6 +267,15 @@ export default function AdminPanel({
                 />
                 <span className="field__suffix">원</span>
               </div>
+              <button
+                type="button"
+                className={`btn btn--sm${item.soldOut ? " btn--primary" : " btn--secondary"}`}
+                onClick={() => onToggleSoldOut(item.id, !item.soldOut)}
+                aria-pressed={item.soldOut}
+                title="품절 상태 전환"
+              >
+                {item.soldOut ? "품절" : "판매중"}
+              </button>
               <button
                 className="menu-row__del"
                 onClick={() => onDeleteMenu(item.id)}

@@ -5,6 +5,10 @@ export type MainTab = "tables" | "admin";
 interface Props {
   storeName: string;
   todaySales: number;
+  /** 영업중 여부 */
+  storeOpen: boolean;
+  /** 영업 개폐 토글 */
+  onToggleOpen: () => void;
   activeTab: MainTab;
   onTabChange: (tab: MainTab) => void;
   onRefresh: () => void;
@@ -14,6 +18,8 @@ interface Props {
 export default function Header({
   storeName,
   todaySales,
+  storeOpen,
+  onToggleOpen,
   activeTab,
   onTabChange,
   onRefresh,
@@ -30,6 +36,15 @@ export default function Header({
         <span className="header__summary-label">오늘 매출</span>
         <span className="header__summary-value">{formatKRW(todaySales)}</span>
       </div>
+
+      <button
+        className={`btn btn--sm header__open-toggle${storeOpen ? " btn--primary" : " btn--secondary"}`}
+        onClick={onToggleOpen}
+        aria-pressed={storeOpen}
+        title="영업 상태 전환"
+      >
+        {storeOpen ? "🟢 영업중" : "⛔ 영업종료"}
+      </button>
 
       <button className="header__refresh" onClick={onRefresh} aria-label="새로고침">
         ↻

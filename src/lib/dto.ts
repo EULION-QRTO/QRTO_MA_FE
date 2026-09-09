@@ -15,30 +15,46 @@ export interface ApiEnvelope<T> {
 }
 
 /* ── 인증 ── */
+export type UserRole = "ADMIN" | "STORE";
+
 export interface LoginResponse {
   accessToken: string;
-  /** 만료까지 남은 초 (기본 12h = 43200) */
+  /** 만료까지 남은 초 (기본 12h = 43200). /me 는 남은 초. */
   expiresIn: number;
-  storeId: number;
-  storeName: string;
+  /** 프론트 화면 분기 기준 */
+  role: UserRole;
+  /** STORE 만. ADMIN 은 null */
+  storeId: number | null;
+  /** STORE 만. ADMIN 은 null */
+  storeName: string | null;
 }
 
 /* ── 매장 ── */
-/** 매장 생성 요청 (운영자). 백엔드 POST /api/stores 구현 예정. */
-export interface CreateStoreRequest {
+/** 매장 개설 요청 (관리자) — POST /api/admin/stores */
+export interface StoreCreateRequest {
+  /** ≤100 */
   name: string;
-  /** 운영단체 (백엔드 필드 추가 예정) */
-  org?: string;
-  takeoutEnabled?: boolean;
-  /** 운영자가 사전 설정하는 주점 로그인 자격증명 (서버가 계정 생성/해시) */
+  /** ≤50, 전체 유일 — 포스 로그인 아이디 */
   username: string;
+  /** ≥8 */
   password: string;
+  /** ≤500 */
+  logoUrl?: string;
+  /** 기본 false */
+  takeoutEnabled?: boolean;
+  /** 0~100, 기본 0 */
+  tableCount?: number;
+  bankName?: string;
+  accountNumber?: string;
+  accountHolder?: string;
 }
 export interface StoreResponse {
   id: number;
   name: string;
   logoUrl: string | null;
   takeoutEnabled: boolean;
+  /** 영업중 여부 */
+  open: boolean;
   tableCount: number;
   bankName: string | null;
   accountNumber: string | null;
@@ -48,7 +64,38 @@ export interface StoreResponse {
   updatedAt: string;
 }
 
-/** PATCH /api/stores/{storeId} — 전 필드 선택 */
+/** GET /api/admin/stores 항목 — StoreResponse + 관리자 집계 */
+export interface AdminStoreResponse {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  takeoutEnabled: boolean;
+  open: boolean;
+  tableCount: number;
+  /** 포스 로그인 아이디 */
+  username: string;
+  /** 오늘 매출(취소 제외) */
+  todaySales: number;
+  /** 진행중 주문 수(RECEIVED·PREPARING·COOKED) */
+  activeOrderCount: number;
+  createdAt: string;
+}
+
+/** GET /api/admin/sales/summary — 전 매장 매출 합산 */
+export interface AdminSalesSummaryResponse {
+  date: string;
+  totalSales: number;
+  orderCount: number;
+  stores: {
+    storeId: number;
+    storeName: string;
+    open: boolean;
+    totalSales: number;
+    orderCount: number;
+  }[];
+}
+
+/** PATCH /api/pos/store · PATCH /api/admin/stores/{storeId} — 전 필드 선택 */
 export interface UpdateStoreRequest {
   name?: string;
   logoUrl?: string | null;
@@ -132,13 +179,15 @@ export interface TableStatusResponse {
   staffCallActive: boolean;
 }
 
-/** POST .../tables/{tableId}/clear */
+/** POST /api/pos/tables/{tableId}/clear */
 export interface ClearTableResponse {
   tableId: number;
   clearedOrderIds: number[];
   clearedCount: number;
   resolvedStaffCalls: number;
 }
+/** 명세서 표기 별칭 */
+export type TableClearResponse = ClearTableResponse;
 
 /* ── 주문 ── */
 export type OrderType = "DINE_IN" | "TAKEOUT";
@@ -165,6 +214,8 @@ export interface OrderResponse {
   orderType: OrderType;
   orderTypeLabel: string;
   tableId: number | null;
+  /** DINE_IN. 스냅샷 */
+  tableName: string | null;
   phoneNumber: string | null;
   pickupNo: string | number | null;
   status: OrderStatus;
@@ -196,6 +247,8 @@ export interface SalesSummaryResponse {
   takeoutOrderCount: number;
   avgOrderPrice: number;
   canceledCount: number;
+  /** 축제 누적 매출 */
+  cumulativeSales: number;
 }
 
 /* ── 실시간(STOMP) 이벤트 ── */

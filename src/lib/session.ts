@@ -11,6 +11,8 @@ export interface Session {
   /** 라우팅/식별용 문자열 storeId (백엔드 숫자 id 를 문자열로 보관) */
   storeId: string;
   storeName: string;
+  /** 로그인 역할. 포스 세션은 항상 "STORE" */
+  role: "STORE" | "ADMIN";
   accessToken: string;
   /** 만료 시각 (epoch ms) */
   expiresAt: number;
