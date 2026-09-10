@@ -1,112 +1,59 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatKRW } from "@/lib/types";
-import {
-  getManagedStores,
-  setManagedStores,
-  type ManagedStore,
-} from "@/lib/operator";
-import { syncStoresFromServer } from "@/lib/storeRegistry";
 import { fetchSnapshot, type StoreSnapshot } from "./storeSnapshot";
+import { useStores, setStoreOrgMeta, type OpStore } from "@/pages/operator/stores";
 
 interface Props {
   /** QR 인쇄 탭으로 이동 (해당 매장 ID prefill) */
   onPrintQr: (id: string) => void;
 }
 
-/** 매장 표시명: 백엔드 조회명 > 로컬 라벨 > 매장 #id */
-const displayName = (store: ManagedStore, snap?: StoreSnapshot) =>
-  snap?.name ?? store.name ?? `매장 #${store.id}`;
+const displayName = (store: OpStore, snap?: StoreSnapshot) => snap?.name ?? store.name;
 
 export default function StoreListTab({ onPrintQr }: Props) {
-  const [stores, setStores] = useState<ManagedStore[]>(() => getManagedStores());
+  const { stores, loading: listLoading, error: listError, refresh } = useStores();
   const [snapshots, setSnapshots] = useState<Record<string, StoreSnapshot>>({});
-  const [loading, setLoading] = useState(false);
+  const [snapLoading, setSnapLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // 추가 폼
-  const [addId, setAddId] = useState("");
-  const [addName, setAddName] = useState("");
-  const [addOrg, setAddOrg] = useState("");
-
-  // 상세 편집 초안
-  const [editName, setEditName] = useState("");
   const [editOrg, setEditOrg] = useState("");
 
-  const persist = (next: ManagedStore[]) => {
-    setStores(next);
-    setManagedStores(next);
-  };
+  const idsKey = stores.map((s) => s.id).join(",");
 
-  const refresh = useCallback(async () => {
-    const ids = stores.map((s) => s.id);
-    setLoading(true);
-    const results = await Promise.all(ids.map(fetchSnapshot));
-    setSnapshots(Object.fromEntries(results.map((s) => [s.id, s])));
-    setLoading(false);
-  }, [stores]);
-
-  // 마운트 시 서버 매장 목록과 동기화(가능하면). 실패하면 로컬 그대로.
-  useEffect(() => {
-    let alive = true;
-    void syncStoresFromServer().then((merged) => {
-      if (alive && merged) setStores(merged);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const addStore = () => {
-    const id = addId.trim();
-    if (!id || stores.some((s) => s.id === id)) {
-      setAddId("");
+  const refreshSnapshots = useCallback(async () => {
+    const ids = idsKey ? idsKey.split(",") : [];
+    if (ids.length === 0) {
+      setSnapshots({});
       return;
     }
-    // 숫자 ID = 이미 서버에 존재하는 매장을 추적 → synced
-    persist([
-      ...stores,
-      { id, name: addName.trim() || undefined, org: addOrg.trim() || undefined, synced: true },
-    ]);
-    setAddId("");
-    setAddName("");
-    setAddOrg("");
-  };
+    setSnapLoading(true);
+    const results = await Promise.all(ids.map(fetchSnapshot));
+    setSnapshots(Object.fromEntries(results.map((s) => [s.id, s])));
+    setSnapLoading(false);
+  }, [idsKey]);
 
-  const removeStore = (id: string) => {
-    persist(stores.filter((s) => s.id !== id));
-    if (selectedId === id) setSelectedId(null);
-  };
+  useEffect(() => {
+    void refreshSnapshots();
+  }, [refreshSnapshots]);
 
-  const openDetail = (store: ManagedStore) => {
+  const openDetail = (store: OpStore) => {
     setSelectedId(store.id);
-    setEditName(store.name ?? "");
-    setEditOrg(store.org ?? "");
+    setEditOrg(store.organization ?? "");
   };
 
-  const saveMeta = () => {
+  const saveOrg = () => {
     if (!selectedId) return;
-    persist(
-      stores.map((s) =>
-        s.id === selectedId
-          ? { ...s, name: editName.trim() || undefined, org: editOrg.trim() || undefined }
-          : s,
-      ),
-    );
+    setStoreOrgMeta(selectedId, editOrg);
+    void refresh();
   };
 
-  // 검색: 표시명 · 운영단체 · ID 부분일치
   const q = query.trim().toLowerCase();
   const filtered = stores.filter((s) => {
     if (!q) return true;
     const snap = snapshots[s.id];
     return (
       displayName(s, snap).toLowerCase().includes(q) ||
-      (s.org ?? "").toLowerCase().includes(q) ||
+      (s.organization ?? "").toLowerCase().includes(q) ||
       s.id.includes(q)
     );
   });
@@ -119,11 +66,22 @@ export default function StoreListTab({ onPrintQr }: Props) {
       <div className="op__section-head">
         <h2 className="op__section-title">매장 리스트</h2>
         <span className="op__count">{stores.length}</span>
-        <span className="op__updated">{loading ? "갱신 중…" : ""}</span>
-        <button className="btn btn--sm" onClick={() => void refresh()} disabled={loading}>
+        <span className="op__updated">
+          {listLoading || snapLoading ? "갱신 중…" : ""}
+        </span>
+        <button
+          className="btn btn--sm"
+          onClick={() => {
+            void refresh();
+            void refreshSnapshots();
+          }}
+          disabled={listLoading || snapLoading}
+        >
           새로고침
         </button>
       </div>
+
+      {listError && <p className="op-card__error">⚠️ {listError}</p>}
 
       {/* 검색 */}
       <div className="op__add">
@@ -133,33 +91,6 @@ export default function StoreListTab({ onPrintQr }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-      </div>
-
-      {/* 매장 추가 */}
-      <div className="op-form op-form--inline">
-        <input
-          className="field field--sm"
-          placeholder="매장 ID"
-          inputMode="numeric"
-          value={addId}
-          onChange={(e) => setAddId(e.target.value.replace(/[^0-9]/g, ""))}
-        />
-        <input
-          className="field field--sm"
-          placeholder="이름(선택)"
-          value={addName}
-          onChange={(e) => setAddName(e.target.value)}
-        />
-        <input
-          className="field field--sm"
-          placeholder="운영단체(선택)"
-          value={addOrg}
-          onChange={(e) => setAddOrg(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addStore()}
-        />
-        <button className="btn btn--sm btn--primary" onClick={addStore} disabled={!addId.trim()}>
-          매장 추가
-        </button>
       </div>
 
       {/* 목록 */}
@@ -172,14 +103,13 @@ export default function StoreListTab({ onPrintQr }: Props) {
               <th>ID</th>
               <th>상태</th>
               <th>오늘 매출</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="op__table-empty">
-                  {stores.length === 0 ? "관리 중인 매장이 없습니다. 위에서 추가하세요." : "검색 결과가 없습니다."}
+                <td colSpan={5} className="op__table-empty">
+                  {stores.length === 0 ? "등록된 매장이 없습니다." : "검색 결과가 없습니다."}
                 </td>
               </tr>
             ) : (
@@ -192,7 +122,7 @@ export default function StoreListTab({ onPrintQr }: Props) {
                     onClick={() => openDetail(s)}
                   >
                     <td>{displayName(s, snap)}</td>
-                    <td>{s.org ?? "—"}</td>
+                    <td>{s.organization ?? "—"}</td>
                     <td>#{s.id}</td>
                     <td>
                       {!snap ? (
@@ -203,17 +133,10 @@ export default function StoreListTab({ onPrintQr }: Props) {
                         <span className="op__badge op__badge--off">오프라인</span>
                       )}
                     </td>
-                    <td>{snap?.online ? formatKRW(snap.totalSales ?? 0) : "—"}</td>
                     <td>
-                      <button
-                        className="op__link-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeStore(s.id);
-                        }}
-                      >
-                        제거
-                      </button>
+                      {snap?.online
+                        ? formatKRW(snap.totalSales ?? 0)
+                        : formatKRW(s.todaySales ?? 0)}
                     </td>
                   </tr>
                 );
@@ -230,9 +153,6 @@ export default function StoreListTab({ onPrintQr }: Props) {
             <h3 className="op-detail__title">
               {displayName(selected, selectedSnap)} <span className="op-card__id">#{selected.id}</span>
             </h3>
-            <span className={`op__badge${selected.synced ? " op__badge--on" : " op__badge--off"}`}>
-              {selected.synced ? "서버 저장됨" : "로컬 전용"}
-            </span>
             <button className="op-card__remove" onClick={() => setSelectedId(null)} aria-label="닫기">
               ✕
             </button>
@@ -271,27 +191,25 @@ export default function StoreListTab({ onPrintQr }: Props) {
             </div>
           )}
 
-          {/* 메타데이터 편집 (로컬) */}
+          {/* 운영단체 (로컬 메타 — 서버에 organization 필드 추가 전까지 임시) */}
           <div className="op-detail__meta">
             <label className="op-form__field">
-              <span className="op-form__label">표시 이름(로컬)</span>
-              <input className="field field--sm" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="백엔드 매장명 사용 시 비움" />
-            </label>
-            <label className="op-form__field">
               <span className="op-form__label">운영단체</span>
-              <input className="field field--sm" value={editOrg} onChange={(e) => setEditOrg(e.target.value)} placeholder="예: 멋쟁이사자처럼 LPAY" />
+              <input
+                className="field field--sm"
+                value={editOrg}
+                onChange={(e) => setEditOrg(e.target.value)}
+                placeholder="예: 멋쟁이사자처럼 LPAY"
+              />
             </label>
-            <button className="btn btn--sm" onClick={saveMeta}>
-              메타 저장
+            <button className="btn btn--sm" onClick={saveOrg}>
+              저장
             </button>
           </div>
 
           <div className="op-detail__actions">
             <button className="btn btn--sm btn--primary" onClick={() => onPrintQr(selected.id)}>
               🖨 QR 인쇄
-            </button>
-            <button className="btn btn--sm btn--destructive" onClick={() => removeStore(selected.id)}>
-              목록에서 제거
             </button>
           </div>
         </section>

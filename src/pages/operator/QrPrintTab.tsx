@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { adminApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
-import { getManagedStores } from "@/lib/operator";
+import { useStores } from "@/pages/operator/stores";
 
 interface Props {
   /** 다른 탭에서 넘어올 때 prefill 할 매장 ID */
@@ -43,39 +43,22 @@ function resolveStoreId(query: string, dir: StoreDirEntry[]): string | null {
 
 /**
  * 주점별 테이블 QR + TOGO(픽업) QR 인쇄.
- * 백엔드에 매장 검색 API 가 없어, 이름 검색은 감시 목록(watchlist) 내 매장으로 한정된다.
- * (감시 목록에 없는 매장은 ID 로 직접 입력)
+ * 매장 목록은 GET /api/admin/stores(useStores) 정본을 쓴다.
  */
 export default function QrPrintTab({ initialStoreId }: Props) {
-  const [dir, setDir] = useState<StoreDirEntry[]>([]);
+  const { stores } = useStores();
   const [query, setQuery] = useState(initialStoreId ?? "");
   const [data, setData] = useState<QrData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const urlsRef = useRef<string[]>([]);
 
-  // 관리 매장의 이름을 미리 조회해 디렉터리(이름 검색용) 구성. 로컬 라벨/운영단체도 병합.
+  const dir: StoreDirEntry[] = stores.map((s) => ({ id: s.id, name: s.name }));
+
+  // 매장 목록이 로드되면 검색창을 첫 매장으로 채운다(비어 있을 때만).
   useEffect(() => {
-    const managed = getManagedStores();
-    setDir(managed.map((m) => ({ id: m.id, name: m.name })));
-    setQuery((q) => q || initialStoreId || managed[0]?.id || "");
-    let alive = true;
-    Promise.all(
-      managed.map(async (m): Promise<StoreDirEntry> => {
-        try {
-          const s = await adminApi.stores.get(m.id);
-          return { id: m.id, name: s.name ?? m.name };
-        } catch {
-          return { id: m.id, name: m.name };
-        }
-      }),
-    ).then((entries) => {
-      if (alive) setDir(entries);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [initialStoreId]);
+    setQuery((q) => q || initialStoreId || stores[0]?.id || "");
+  }, [initialStoreId, stores]);
 
   const revokeAll = () => {
     urlsRef.current.forEach((u) => URL.revokeObjectURL(u));
