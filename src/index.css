@@ -370,7 +370,7 @@ button {
   cursor: default;
 }
 .table-card--empty .table-card__num {
-  font: 700 clamp(22px, 3.2vw, 30px) / 1 var(--font-sans);
+  font: 700 20px / 1 var(--font-sans);
   color: var(--color-text-secondary);
 }
 
