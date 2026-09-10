@@ -7,6 +7,52 @@
 }
 
 /* =========================================================
+   SUITE — POS 전역 서체
+   ========================================================= */
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Heavy.woff2") format("woff2");
+  font-weight: 900;
+  font-display: swap;
+}
+
+/* =========================================================
    을지포차 POS — 디자인 토큰 (DESIGN.md §2)
    ========================================================= */
 :root {
@@ -46,7 +92,7 @@
   --font-body: 500 16px/1.4 var(--font-sans);
   --font-caption: 400 13px/1.4 var(--font-sans);
   --font-badge: 700 12px/1 var(--font-sans);
-  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+  --font-sans: "SUITE", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Segoe UI", Roboto, sans-serif;
 
   /* Radius */
