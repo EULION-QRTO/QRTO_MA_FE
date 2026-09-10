@@ -13,10 +13,15 @@ import {
   type ManagedStore,
 } from "./operator";
 
+/** 신규 매장 기본 테이블 개수 */
+export const DEFAULT_TABLE_COUNT = 32;
+
 export interface CreateStoreInput {
   name: string;
   org?: string;
   takeoutEnabled?: boolean;
+  /** 생략 시 DEFAULT_TABLE_COUNT(32) */
+  tableCount?: number;
   /** 운영자가 사전 설정하는 주점 로그인 자격증명 */
   username: string;
   password: string;
@@ -54,6 +59,7 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
       name: input.name,
       organization: input.org,
       takeoutEnabled: input.takeoutEnabled,
+      tableCount: input.tableCount ?? DEFAULT_TABLE_COUNT,
       username: input.username,
       password: input.password,
     });
