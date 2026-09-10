@@ -34,6 +34,11 @@ export interface LoginResponse {
 export interface StoreCreateRequest {
   /** ≤100 */
   name: string;
+  /**
+   * 운영단체(주점을 운영하는 단체/학과 등).
+   * ⚠️ v2 명세서에 아직 없는 필드 — 백엔드가 store 스키마·응답에 `organization` 을 추가해야 실제로 저장/조회됨.
+   */
+  organization?: string;
   /** ≤50, 전체 유일 — 포스 로그인 아이디 */
   username: string;
   /** ≥8 */
@@ -51,6 +56,11 @@ export interface StoreCreateRequest {
 export interface StoreResponse {
   id: number;
   name: string;
+  /**
+   * 운영단체. ⚠️ v2 명세서 미포함 — 백엔드가 응답에 `organization` 을 추가하기 전까지 undefined.
+   * (프론트는 없으면 표시를 생략한다)
+   */
+  organization?: string | null;
   logoUrl: string | null;
   takeoutEnabled: boolean;
   /** 영업중 여부 */
@@ -68,6 +78,8 @@ export interface StoreResponse {
 export interface AdminStoreResponse {
   id: number;
   name: string;
+  /** 운영단체. ⚠️ v2 명세서 미포함 (백엔드 추가 대기) */
+  organization?: string | null;
   logoUrl: string | null;
   takeoutEnabled: boolean;
   open: boolean;
@@ -98,6 +110,8 @@ export interface AdminSalesSummaryResponse {
 /** PATCH /api/pos/store · PATCH /api/admin/stores/{storeId} — 전 필드 선택 */
 export interface UpdateStoreRequest {
   name?: string;
+  /** 운영단체. ⚠️ v2 명세서 미포함 (백엔드 추가 대기) */
+  organization?: string;
   logoUrl?: string | null;
   takeoutEnabled?: boolean;
   tableCount?: number;

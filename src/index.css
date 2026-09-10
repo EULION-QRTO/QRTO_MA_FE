@@ -123,19 +123,27 @@ button {
 
 .header__brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
-.header__logo {
+/* 서비스 로고 (/logo.svg — 실제 파일로 교체 가능) */
+.header__logo-img {
+  height: 30px;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
+}
+
+/* 주점 이름 — 볼드 */
+.header__store-name {
   font: var(--font-title);
-  color: var(--color-primary);
-  letter-spacing: -0.5px;
-}
-
-.header__store {
-  font: var(--font-caption);
-  color: var(--color-text-secondary);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .header__summary {
@@ -225,6 +233,13 @@ button {
   font: var(--font-display);
   color: var(--color-primary);
   text-align: center;
+}
+/* Lpay 로고 (로그인 카드 상단) */
+.login__brand-logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  margin: 0 auto var(--space-xs);
 }
 .login__subtitle {
   margin-top: calc(-1 * var(--space-sm));
@@ -1201,10 +1216,6 @@ button {
   }
   .header__brand {
     flex-shrink: 0;
-  }
-  .header__logo,
-  .header__store {
-    white-space: nowrap;
   }
   .segmented__tab {
     white-space: nowrap;

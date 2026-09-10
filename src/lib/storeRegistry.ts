@@ -47,10 +47,12 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
   setManagedStores([...getManagedStores(), draft]);
 
   // 2) 서버 저장 시도 (자격증명 포함 → 서버가 계정 생성/해시)
-  //    org(운영단체)는 v2 API 에 필드가 없어 로컬 메타로만 보관한다.
+  //    organization(운영단체)은 v2 명세서에 아직 없는 필드 — 백엔드가 추가하면 그대로 저장된다.
+  //    서버가 무시하더라도 로컬 메타로 계속 보관한다.
   try {
     const created = await adminApi.stores.create({
       name: input.name,
+      organization: input.org,
       takeoutEnabled: input.takeoutEnabled,
       username: input.username,
       password: input.password,
@@ -58,7 +60,7 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
     const synced: ManagedStore = {
       id: String(created.id),
       name: created.name ?? input.name,
-      org: input.org, // 서버 미지원 필드는 로컬 메타 유지
+      org: created.organization ?? input.org,
       takeoutEnabled: created.takeoutEnabled ?? input.takeoutEnabled,
       username: input.username,
       synced: true,
@@ -78,16 +80,18 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
  * 서버에서 전체 매장 목록을 불러와 로컬 레지스트리와 병합한다.
  * 서버 API 부재/오류면 null 반환(호출측은 로컬 목록 그대로 사용).
  * - 서버 매장: 정본. 로컬 메타(org, name 라벨)는 보존.
+ * - 서버가 organization 을 내려주면 그 값을 우선 사용, 없으면 로컬 메타 유지.
  * - 서버에 없는 로컬 전용(local-*) 매장: 유지.
  */
 export async function syncStoresFromServer(): Promise<ManagedStore[] | null> {
-  let server: ManagedStore[];
+  let server: (ManagedStore & { serverOrg?: string | null })[];
   try {
     const list = await adminApi.stores.list();
     server = list.map((s) => ({
       id: String(s.id),
       name: s.name,
       takeoutEnabled: s.takeoutEnabled,
+      serverOrg: s.organization ?? undefined,
       synced: true,
     }));
   } catch {
@@ -95,9 +99,9 @@ export async function syncStoresFromServer(): Promise<ManagedStore[] | null> {
   }
   const local = getManagedStores();
   const localById = new Map(local.map((s) => [s.id, s]));
-  const merged: ManagedStore[] = server.map((s) => ({
+  const merged: ManagedStore[] = server.map(({ serverOrg, ...s }) => ({
     ...s,
-    org: localById.get(s.id)?.org,
+    org: serverOrg ?? localById.get(s.id)?.org,
     name: localById.get(s.id)?.name ?? s.name,
   }));
   const localOnly = local.filter((s) => !server.some((sv) => sv.id === s.id));

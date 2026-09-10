@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { login } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
+import logoUrl from "@/assets/lapy_logo.svg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export default function LoginPage() {
   return (
     <div className="login">
       <form className="login__card" onSubmit={submit}>
-        <div className="login__brand">을지포차</div>
+        <img className="login__brand-logo" src={logoUrl} alt="Lpay" />
         <p className="login__subtitle">주점 POS 로그인</p>
 
         {reasonMsg && <div className="login__notice">{reasonMsg}</div>}
