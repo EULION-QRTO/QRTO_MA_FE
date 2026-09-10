@@ -1,12 +1,11 @@
 import { formatKRW } from "@/lib/types";
+import logoUrl from "@/assets/lapy_logo.svg";
 
 export type MainTab = "tables" | "admin";
 
 interface Props {
-  /** 주점 이름 (헤더에 크게 표시) */
+  /** 주점 이름 (헤더에 볼드로 표시) */
   storeName: string;
-  /** 운영단체 (주점 이름 옆 보조 표기) */
-  organization: string;
   todaySales: number;
   /** 영업중 여부 */
   storeOpen: boolean;
@@ -20,7 +19,6 @@ interface Props {
 
 export default function Header({
   storeName,
-  organization,
   todaySales,
   storeOpen,
   onToggleOpen,
@@ -32,8 +30,8 @@ export default function Header({
   return (
     <header className="header">
       <div className="header__brand">
-        <span className="header__logo">{storeName}</span>
-        {organization && <span className="header__store">{organization}</span>}
+        <img className="header__logo-img" src={logoUrl} alt="Lpay" />
+        <span className="header__store-name">{storeName}</span>
       </div>
 
       <div className="header__summary">

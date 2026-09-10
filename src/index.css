@@ -123,27 +123,27 @@ button {
 
 .header__brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-sm);
   min-width: 0;
 }
 
-/* 주점 이름 — 브랜드 자리 */
-.header__logo {
-  font: var(--font-title);
-  color: var(--color-primary);
-  letter-spacing: -0.5px;
-  white-space: nowrap;
+/* 서비스 로고 (/logo.svg — 실제 파일로 교체 가능) */
+.header__logo-img {
+  height: 30px;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
 }
 
-/* 운영단체 — 보조 표기 */
-.header__store {
-  font: var(--font-caption);
-  color: var(--color-text-secondary);
+/* 주점 이름 — 볼드 */
+.header__store-name {
+  font: var(--font-title);
+  font-weight: 700;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 22ch;
 }
 
 .header__summary {
@@ -1209,10 +1209,6 @@ button {
   }
   .header__brand {
     flex-shrink: 0;
-  }
-  .header__logo,
-  .header__store {
-    white-space: nowrap;
   }
   .segmented__tab {
     white-space: nowrap;
