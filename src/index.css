@@ -331,9 +331,9 @@ button {
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   /* 모든 행 높이를 균일하게. 내용이 넘치면 그 행만 늘어남 */
-  grid-auto-rows: minmax(94px, auto);
+  grid-auto-rows: minmax(96px, auto);
   gap: var(--space-sm);
   align-content: start;
   padding-bottom: var(--space-md);
@@ -1201,10 +1201,26 @@ button {
 /* =========================================================
    반응형 (DESIGN.md §5)
    ========================================================= */
-/* 11" 아이패드 가로처럼 화면이 낮으면 행을 더 낮게 → 스크롤 없이 더 많은 행 노출 */
-@media (orientation: landscape) and (max-height: 920px) {
+/*
+ * POS 기기(터치 태블릿 가로) — 대부분 32테이블.
+ * 열을 조금 크게(11" 가로 ≈ 6열) 잡고, 행 높이를 1fr 로 남는 세로 공간에 맞춰
+ * 32테이블이 화면에 꽉 차게 한다. (테이블이 더 많아지면 94px 이하로는 안 줄고 스크롤)
+ */
+@media (orientation: landscape) and (pointer: coarse),
+  (orientation: landscape) and (max-height: 920px) {
   .table-grid {
-    grid-auto-rows: minmax(86px, auto);
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-auto-rows: minmax(94px, 1fr);
+    align-content: stretch;
+  }
+  .table-card__num {
+    font-size: 19px;
+  }
+  .table-card--empty .table-card__num {
+    font-size: 23px;
+  }
+  .table-card__total {
+    font-size: 16px;
   }
 }
 
