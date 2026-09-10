@@ -1203,24 +1203,25 @@ button {
    ========================================================= */
 /*
  * POS 기기(터치 태블릿 가로) — 대부분 32테이블.
- * 열을 조금 크게(11" 가로 ≈ 6열) 잡고, 행 높이를 1fr 로 남는 세로 공간에 맞춰
- * 32테이블이 화면에 꽉 차게 한다. (테이블이 더 많아지면 94px 이하로는 안 줄고 스크롤)
+ * 정사각형 카드로 11" 가로에서 ≈7열, 32테이블이 스크롤 없이 들어간다.
  */
 @media (orientation: landscape) and (pointer: coarse),
   (orientation: landscape) and (max-height: 920px) {
   .table-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    grid-auto-rows: minmax(94px, 1fr);
-    align-content: stretch;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    grid-auto-rows: auto;
+  }
+  .table-card {
+    aspect-ratio: 1;
   }
   .table-card__num {
-    font-size: 19px;
+    font-size: 18px;
   }
   .table-card--empty .table-card__num {
-    font-size: 23px;
+    font-size: 22px;
   }
   .table-card__total {
-    font-size: 16px;
+    font-size: 15px;
   }
 }
 
