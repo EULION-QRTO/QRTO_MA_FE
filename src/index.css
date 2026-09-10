@@ -377,6 +377,10 @@ button {
   justify-content: center;
   cursor: default;
 }
+/* 빈 테이블이라도 호출 중이면 탭 가능(해제) */
+.table-card--empty.table-card--calling {
+  cursor: pointer;
+}
 .table-card--empty .table-card__num {
   font: 700 20px / 1 var(--font-sans);
   color: var(--color-text-secondary);
