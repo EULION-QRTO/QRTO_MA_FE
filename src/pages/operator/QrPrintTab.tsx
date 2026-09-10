@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { adminApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
+import { renderTableCard } from "@/lib/qrCard";
 import { useStores } from "@/pages/operator/stores";
 
 interface Props {
@@ -8,169 +9,202 @@ interface Props {
   initialStoreId?: string;
 }
 
-interface TableQr {
-  id: number;
-  name: string;
+interface Card {
+  label: string;
+  blob: Blob;
   url: string;
 }
-interface QrData {
-  tableQrs: TableQr[];
-  togoUrl: string | null;
-}
-/** 감시 목록에서 만든 매장 디렉터리 (이름 검색용). name 은 조회 실패 시 undefined. */
-interface StoreDirEntry {
-  id: string;
-  name?: string;
+
+/** QR 요청 크기 — 카드 렌더 배율(4×480=1920)에 맞춤. 명세 상한 2000 */
+const QR_SIZE = 1920;
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const labelOf = (d: StoreDirEntry) => (d.name ? `${d.name} (#${d.id})` : `#${d.id}`);
-
-/**
- * 입력값(이름 또는 ID)을 매장 ID 로 해석한다.
- * 우선순위: 정확한 라벨 → "#숫자" 포함 → 순수 숫자 → 이름 부분일치
- */
-function resolveStoreId(query: string, dir: StoreDirEntry[]): string | null {
-  const q = query.trim();
-  if (!q) return null;
-  const byLabel = dir.find((d) => labelOf(d) === q);
-  if (byLabel) return byLabel.id;
-  const hash = q.match(/#(\d+)/);
-  if (hash) return hash[1];
-  if (/^\d+$/.test(q)) return q;
-  const byName = dir.find((d) => d.name && d.name.toLowerCase().includes(q.toLowerCase()));
-  return byName ? byName.id : null;
-}
+const canShareFiles = () =>
+  typeof navigator !== "undefined" &&
+  typeof navigator.canShare === "function" &&
+  navigator.canShare({ files: [new File([], "x.png", { type: "image/png" })] });
 
 /**
- * 주점별 테이블 QR + TOGO(픽업) QR 인쇄.
- * 매장 목록은 GET /api/admin/stores(useStores) 정본을 쓴다.
+ * 주점별 QR 카드 생성 — src/assets/TableQR.svg 템플릿에 맞춰 canvas 로 합성.
+ * 테이블 1..N + (포장 사용 시) 포장 카드. 개별 PNG 저장 / 공유 / 전체 ZIP / 인쇄.
  */
 export default function QrPrintTab({ initialStoreId }: Props) {
   const { stores } = useStores();
-  const [query, setQuery] = useState(initialStoreId ?? "");
-  const [data, setData] = useState<QrData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [storeId, setStoreId] = useState(initialStoreId ?? "");
+  const [cards, setCards] = useState<Card[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const urlsRef = useRef<string[]>([]);
+  const [zipping, setZipping] = useState(false);
+  const cardsRef = useRef<Card[]>([]);
+  const shareable = canShareFiles();
 
-  const dir: StoreDirEntry[] = stores.map((s) => ({ id: s.id, name: s.name }));
-
-  // 매장 목록이 로드되면 검색창을 첫 매장으로 채운다(비어 있을 때만).
   useEffect(() => {
-    setQuery((q) => q || initialStoreId || stores[0]?.id || "");
+    setStoreId((s) => s || initialStoreId || stores[0]?.id || "");
   }, [initialStoreId, stores]);
 
-  const revokeAll = () => {
-    urlsRef.current.forEach((u) => URL.revokeObjectURL(u));
-    urlsRef.current = [];
+  const clearCards = () => {
+    cardsRef.current.forEach((c) => URL.revokeObjectURL(c.url));
+    cardsRef.current = [];
+    setCards([]);
   };
+  useEffect(() => () => clearCards(), []);
 
-  const load = async () => {
-    const storeId = resolveStoreId(query, dir);
-    if (!storeId) {
-      setError("매장을 찾을 수 없습니다. 이름 또는 ID를 확인하세요.");
-      setData(null);
-      return;
-    }
-    setLoading(true);
+  const store = stores.find((s) => s.id === storeId);
+
+  const generate = async () => {
+    if (!storeId || !store) return;
     setError(null);
-    revokeAll();
-    setData(null);
+    clearCards();
+    setProgress({ done: 0, total: 0 });
     try {
       const tables = await adminApi.tables.list(storeId);
-      const tableQrs = await Promise.all(
-        tables.map(async (t) => {
-          const url = await adminApi.tables.qrImageUrl(storeId, t.id);
-          urlsRef.current.push(url);
-          return { id: t.id, name: t.name, url };
-        }),
-      );
-      let togoUrl: string | null = null;
-      try {
-        togoUrl = await adminApi.pickupQrImageUrl(storeId);
-        urlsRef.current.push(togoUrl);
-      } catch {
-        togoUrl = null; // TOGO 미사용 매장 등
+      const ordered = [...tables].sort((a, b) => {
+        const na = parseInt(a.name.match(/\d+/)?.[0] ?? "0", 10);
+        const nb = parseInt(b.name.match(/\d+/)?.[0] ?? "0", 10);
+        return na - nb || a.id - b.id;
+      });
+
+      const jobs: { label: string; getQr: () => Promise<string> }[] = ordered.map((t, i) => ({
+        label: `T${i + 1}`,
+        getQr: () => adminApi.tables.qrImageUrl(storeId, t.id, { transparent: true, size: QR_SIZE }),
+      }));
+      if (store.takeoutEnabled) {
+        jobs.push({
+          label: "포장",
+          getQr: () => adminApi.pickupQrImageUrl(storeId, { transparent: true, size: QR_SIZE }),
+        });
       }
-      setData({ tableQrs, togoUrl });
+
+      setProgress({ done: 0, total: jobs.length });
+      const out: Card[] = [];
+      for (const job of jobs) {
+        const qrUrl = await job.getQr();
+        try {
+          const blob = await renderTableCard({ qrUrl, storeName: store.name, label: job.label });
+          const card: Card = { label: job.label, blob, url: URL.createObjectURL(blob) };
+          out.push(card);
+          cardsRef.current.push(card);
+          setCards([...out]);
+        } finally {
+          URL.revokeObjectURL(qrUrl);
+        }
+        setProgress({ done: out.length, total: jobs.length });
+      }
     } catch (e) {
-      setError(e instanceof ApiError ? `${e.code} · ${e.message}` : "QR을 불러오지 못했습니다.");
+      setError(e instanceof ApiError ? `${e.code} · ${e.message}` : "카드를 생성하지 못했습니다.");
     } finally {
-      setLoading(false);
+      setProgress(null);
     }
   };
 
-  useEffect(() => () => revokeAll(), []);
+  const fileName = (label: string) => `${store?.name ?? "매장"}_${label}.png`;
 
-  const resolvedId = resolveStoreId(query, dir);
+  const shareCard = async (card: Card) => {
+    try {
+      await navigator.share({
+        files: [new File([card.blob], fileName(card.label), { type: "image/png" })],
+      });
+    } catch {
+      /* 사용자 취소 등 무시 */
+    }
+  };
+
+  const saveZip = async () => {
+    if (cards.length === 0) return;
+    setZipping(true);
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      cards.forEach((c) => zip.file(fileName(c.label), c.blob));
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, `${store?.name ?? "매장"}_QR카드.zip`);
+    } catch {
+      setError("ZIP 생성에 실패했습니다.");
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const busy = progress !== null;
 
   return (
     <>
       <div className="op__section-head op__no-print">
-        <h2 className="op__section-title">QR 인쇄</h2>
+        <h2 className="op__section-title">QR 카드</h2>
       </div>
 
       <div className="op__add op__no-print">
-        <input
+        <select
           className="field field--sm op__store-search"
-          list="op-store-list"
-          placeholder="매장 이름 또는 ID"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void load()}
-        />
-        <datalist id="op-store-list">
-          {dir.map((d) => (
-            <option key={d.id} value={labelOf(d)} />
+          value={storeId}
+          onChange={(e) => setStoreId(e.target.value)}
+        >
+          <option value="">매장 선택</option>
+          {stores.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} (#{s.id})
+            </option>
           ))}
-        </datalist>
-        <button className="btn btn--sm btn--primary" onClick={() => void load()} disabled={loading}>
-          {loading ? "불러오는 중…" : "불러오기"}
+        </select>
+        <button className="btn btn--sm btn--primary" onClick={() => void generate()} disabled={!storeId || busy}>
+          {busy ? `생성 중 ${progress!.done}/${progress!.total || "…"}` : "카드 생성"}
         </button>
-        {data && (
-          <button className="btn btn--sm" onClick={() => window.print()}>
-            🖨 인쇄
-          </button>
-        )}
-        {query.trim() && (
-          <span className="op__resolve-hint">
-            {resolvedId ? `→ 매장 #${resolvedId}` : "매칭되는 매장 없음"}
-          </span>
+        {cards.length > 0 && !busy && (
+          <>
+            <button className="btn btn--sm" onClick={() => void saveZip()} disabled={zipping}>
+              {zipping ? "압축 중…" : `전체 저장 (ZIP · ${cards.length}장)`}
+            </button>
+            <button className="btn btn--sm" onClick={() => window.print()}>
+              🖨 인쇄
+            </button>
+          </>
         )}
       </div>
 
       {error && <p className="op-card__error op__no-print">⚠️ {error}</p>}
 
-      {data && (
+      {cards.length > 0 ? (
         <div className="qr-print">
-          <div className="qr-print__title">매장 #{resolvedId} QR 코드</div>
-
-          {data.togoUrl && (
-            <div className="qr-print__grid">
-              <figure className="qr-print__item qr-print__item--togo">
-                <img src={data.togoUrl} alt="TOGO QR" className="qr-print__img" />
-                <figcaption className="qr-print__cap">📦 포장(TOGO) 주문</figcaption>
+          <div className="qr-print__title op__no-print">
+            {store?.name} · QR 카드 {cards.length}장
+          </div>
+          <div className="qr-print__grid">
+            {cards.map((c) => (
+              <figure className="qr-print__item" key={c.label}>
+                <img src={c.url} alt={`${c.label} QR 카드`} className="qr-print__img" />
+                <figcaption className="qr-print__cap op__no-print">
+                  <span>{c.label}</span>
+                  <span className="qr-print__actions">
+                    <button className="op__link-btn" onClick={() => downloadBlob(c.blob, fileName(c.label))}>
+                      저장
+                    </button>
+                    {shareable && (
+                      <button className="op__link-btn" onClick={() => void shareCard(c)}>
+                        공유
+                      </button>
+                    )}
+                  </span>
+                </figcaption>
               </figure>
-            </div>
-          )}
-
-          {data.tableQrs.length === 0 ? (
-            <p className="op__empty op__no-print">등록된 테이블이 없습니다.</p>
-          ) : (
-            <div className="qr-print__grid">
-              {data.tableQrs.map((t) => (
-                <figure className="qr-print__item" key={t.id}>
-                  <img src={t.url} alt={`${t.name} QR`} className="qr-print__img" />
-                  <figcaption className="qr-print__cap">🟠 {t.name}</figcaption>
-                </figure>
-              ))}
-            </div>
-          )}
+            ))}
+          </div>
         </div>
-      )}
-
-      {!data && !loading && !error && (
-        <p className="op__empty op__no-print">매장 이름 또는 ID를 입력하고 불러오기를 누르세요.</p>
+      ) : (
+        !busy && (
+          <p className="op__empty op__no-print">
+            매장을 선택하고 <strong>카드 생성</strong>을 누르면 테이블 1번부터 순서대로 QR 카드가 만들어집니다.
+          </p>
+        )
       )}
     </>
   );

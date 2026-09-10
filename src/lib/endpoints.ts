@@ -30,6 +30,16 @@ import type {
 
 type OrderFilter = { status?: OrderStatus; type?: OrderType };
 
+/** QR 이미지 옵션 (4개 qr-image 엔드포인트 공통) */
+export interface QrImageOpts {
+  /** true → 배경 투명 + 모듈 흰색 (어두운 배경에 얹을 때) */
+  transparent?: boolean;
+  /** 한 변 픽셀 (64~2000). 기본 512 */
+  size?: number;
+}
+const qrImageQuery = (o?: QrImageOpts) =>
+  o ? { transparent: o.transparent || undefined, size: o.size } : undefined;
+
 /* ══════════ 인증 /api/auth ══════════ */
 export const authApi = {
   /** POST /api/auth/login — 관리자·포스 공통 🌐 */
@@ -100,10 +110,12 @@ export const tableApi = {
   bulk: (count: number) => http.put<TableResponse[]>("/api/pos/tables/bulk", { body: { count } }),
   /** POST /api/pos/tables/{tableId}/clear — 테이블 정리(청산) */
   clear: (tableId: number) => http.post<ClearTableResponse>(`/api/pos/tables/${tableId}/clear`),
-  /** 테이블 QR PNG object URL */
-  qrImageUrl: (tableId: number) => fetchImageObjectUrl(`/api/pos/tables/${tableId}/qr-image`),
+  /** 테이블 QR PNG object URL. transparent=true → 흰 모듈/투명 배경, size(64~2000) */
+  qrImageUrl: (tableId: number, opts?: QrImageOpts) =>
+    fetchImageObjectUrl(`/api/pos/tables/${tableId}/qr-image`, qrImageQuery(opts)),
   /** 매장 픽업 QR PNG object URL */
-  pickupQrImageUrl: () => fetchImageObjectUrl("/api/pos/pickup-qr-image"),
+  pickupQrImageUrl: (opts?: QrImageOpts) =>
+    fetchImageObjectUrl("/api/pos/pickup-qr-image", qrImageQuery(opts)),
 };
 
 /* ── 포스 메인: 테이블 현황 ── */
@@ -183,11 +195,14 @@ export const adminApi = {
   tables: {
     list: (storeId: string | number) =>
       http.get<TableResponse[]>(`/api/admin/stores/${storeId}/tables`),
-    qrImageUrl: (storeId: string | number, tableId: number) =>
-      fetchImageObjectUrl(`/api/admin/stores/${storeId}/tables/${tableId}/qr-image`),
+    qrImageUrl: (storeId: string | number, tableId: number, opts?: QrImageOpts) =>
+      fetchImageObjectUrl(
+        `/api/admin/stores/${storeId}/tables/${tableId}/qr-image`,
+        qrImageQuery(opts),
+      ),
   },
-  pickupQrImageUrl: (storeId: string | number) =>
-    fetchImageObjectUrl(`/api/admin/stores/${storeId}/pickup-qr-image`),
+  pickupQrImageUrl: (storeId: string | number, opts?: QrImageOpts) =>
+    fetchImageObjectUrl(`/api/admin/stores/${storeId}/pickup-qr-image`, qrImageQuery(opts)),
   sales: {
     summary: (storeId: string | number, date?: string) =>
       http.get<SalesSummaryResponse>(`/api/admin/stores/${storeId}/sales/summary`, { query: { date } }),
