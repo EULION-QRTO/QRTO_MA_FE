@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { adminApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 import { renderTableCard } from "@/lib/qrCard";
+import { buildCardsPdf } from "@/lib/qrCardPdf";
 import { useStores } from "@/pages/operator/stores";
 
 interface Props {
@@ -44,7 +45,7 @@ export default function QrPrintTab({ initialStoreId }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [zipping, setZipping] = useState(false);
+  const [saving, setSaving] = useState<null | "zip" | "pdf">(null);
   const cardsRef = useRef<Card[]>([]);
   const shareable = canShareFiles();
 
@@ -121,7 +122,7 @@ export default function QrPrintTab({ initialStoreId }: Props) {
 
   const saveZip = async () => {
     if (cards.length === 0) return;
-    setZipping(true);
+    setSaving("zip");
     try {
       const { default: JSZip } = await import("jszip");
       const zip = new JSZip();
@@ -131,7 +132,20 @@ export default function QrPrintTab({ initialStoreId }: Props) {
     } catch {
       setError("ZIP 생성에 실패했습니다.");
     } finally {
-      setZipping(false);
+      setSaving(null);
+    }
+  };
+
+  const savePdf = async () => {
+    if (cards.length === 0) return;
+    setSaving("pdf");
+    try {
+      const blob = await buildCardsPdf(cards.map((c) => ({ label: c.label, blob: c.blob })));
+      downloadBlob(blob, `${store?.name ?? "매장"}_QR카드.pdf`);
+    } catch {
+      setError("PDF 생성에 실패했습니다.");
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -161,8 +175,11 @@ export default function QrPrintTab({ initialStoreId }: Props) {
         </button>
         {cards.length > 0 && !busy && (
           <>
-            <button className="btn btn--sm" onClick={() => void saveZip()} disabled={zipping}>
-              {zipping ? "압축 중…" : `전체 저장 (ZIP · ${cards.length}장)`}
+            <button className="btn btn--sm" onClick={() => void savePdf()} disabled={saving !== null}>
+              {saving === "pdf" ? "PDF 만드는 중…" : `PDF 저장 (A4·9장/쪽)`}
+            </button>
+            <button className="btn btn--sm" onClick={() => void saveZip()} disabled={saving !== null}>
+              {saving === "zip" ? "압축 중…" : `ZIP 저장 (PNG ${cards.length}장)`}
             </button>
             <button className="btn btn--sm" onClick={() => window.print()}>
               🖨 인쇄
