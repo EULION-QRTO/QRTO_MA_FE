@@ -234,6 +234,13 @@ button {
   color: var(--color-primary);
   text-align: center;
 }
+/* Lpay 로고 (로그인 카드 상단) */
+.login__brand-logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  margin: 0 auto var(--space-xs);
+}
 .login__subtitle {
   margin-top: calc(-1 * var(--space-sm));
   margin-bottom: var(--space-sm);
