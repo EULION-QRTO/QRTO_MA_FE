@@ -15,8 +15,11 @@ const TPL = {
   h: 747,
   orange: "#FF6000",
   ink: "#F9F9F9",
-  /** QR 위치·크기 (템플릿 픽셀 실측). cover 는 베이크된 QR 을 가리는 여유 */
-  qr: { x: 41, y: 41, size: 478, coverPad: 9 },
+  /**
+   * QR 배치: 카드 가장자리에서 41px 여백. (561 - 41*2 = 479)
+   * 서버 QR 의 투명 quiet zone 은 잘라내고 코드 부분만 이 영역을 채운다.
+   */
+  qr: { margin: 41, coverPad: 12 },
   text: {
     /** 오른쪽 정렬 기준선 x (베이크된 "T2" 오른쪽 끝), 알파벳 baseline y */
     right: 505,
@@ -53,6 +56,55 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 
 let templateImgP: Promise<HTMLImageElement> | null = null;
 
+/**
+ * 서버 QR 이미지에서 실제 코드 영역(불투명 픽셀)의 정사각 bbox 를 찾는다.
+ * transparent=true 요청 시 quiet zone 은 알파 0 이므로 이걸로 여백을 제거한다.
+ * 알파 정보가 없으면(불투명 PNG) 전체 이미지를 그대로 사용.
+ */
+function qrContentBox(img: HTMLImageElement): { sx: number; sy: number; s: number } {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  const off = document.createElement("canvas");
+  off.width = w;
+  off.height = h;
+  const octx = off.getContext("2d", { willReadFrequently: true });
+  if (!octx) return { sx: 0, sy: 0, s: Math.min(w, h) };
+  octx.drawImage(img, 0, 0);
+  let data: Uint8ClampedArray;
+  try {
+    data = octx.getImageData(0, 0, w, h).data;
+  } catch {
+    return { sx: 0, sy: 0, s: Math.min(w, h) };
+  }
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  const A = 8; // 성능: 8px 간격 샘플
+  for (let y = 0; y < h; y += A) {
+    for (let x = 0; x < w; x += A) {
+      if (data[(y * w + x) * 4 + 3] > 16) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return { sx: 0, sy: 0, s: Math.min(w, h) }; // 전부 투명 → 통짜 사용
+  // 정사각형으로 맞춤 (샘플 간격만큼 여유)
+  const bw = maxX - minX + A;
+  const bh = maxY - minY + A;
+  const s = Math.max(bw, bh);
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  return {
+    sx: Math.max(0, cx - s / 2),
+    sy: Math.max(0, cy - s / 2),
+    s: Math.min(s, w, h),
+  };
+}
+
 async function ensureFont(): Promise<void> {
   try {
     await Promise.all([
@@ -86,12 +138,17 @@ export async function renderTableCard(input: TableCardInput, scale = 4): Promise
   // 1) 템플릿
   ctx.drawImage(tpl, 0, 0, TPL.w, TPL.h);
 
-  // 2) QR 교체 (기존 QR 을 주황으로 덮고 새 QR 을 얹음)
-  const q = TPL.qr;
+  // 2) QR 교체 — 기존 QR 을 주황으로 덮고, 서버 QR 의 코드 부분(투명 여백 제외)을
+  //    카드 가장자리 41px 여백에 맞춰 그린다.
+  const dSize = TPL.w - TPL.qr.margin * 2; // 479
+  const dX = TPL.qr.margin;
+  const dY = TPL.qr.margin;
+  const pad = TPL.qr.coverPad;
   ctx.fillStyle = TPL.orange;
-  ctx.fillRect(q.x - q.coverPad, q.y - q.coverPad, q.size + q.coverPad * 2, q.size + q.coverPad * 2);
+  ctx.fillRect(dX - pad, dY - pad, dSize + pad * 2, dSize + pad * 2);
+  const box = qrContentBox(qr);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(qr, q.x, q.y, q.size, q.size);
+  ctx.drawImage(qr, box.sx, box.sy, box.s, box.s, dX, dY, dSize, dSize);
   ctx.imageSmoothingEnabled = true;
 
   // 3) 텍스트 교체
