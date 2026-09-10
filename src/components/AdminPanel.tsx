@@ -8,7 +8,8 @@ import {
 } from "@/lib/types";
 import SalesSummaryCard from "@/components/SalesSummaryCard";
 
-const MIN_TABLES = 0;
+/** 주점 기본·최소 테이블 개수 32. 설정값이 없거나 더 작으면 32로 맞춘다. */
+const MIN_TABLES = 32;
 const MAX_TABLES = 100;
 
 interface Props {
@@ -130,7 +131,7 @@ export default function AdminPanel({
           <span className="admin-setting__hint">
             {tableSaved
               ? "✓ 저장되었습니다"
-              : "저장을 눌러야 서버와 POS 화면에 반영됩니다. 개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다. (0~100)"}
+              : "저장을 눌러야 서버와 POS 화면에 반영됩니다. 개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다. (32~100)"}
           </span>
         </div>
       </section>
