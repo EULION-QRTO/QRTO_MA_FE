@@ -1,24 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatKRW } from "@/lib/types";
-import { getManagedStoreIds } from "@/lib/operator";
+import { useStores } from "@/pages/operator/stores";
 import { fetchSnapshot, type StoreSnapshot } from "./storeSnapshot";
 
 const REFRESH_MS = 15000;
 
 export default function OverviewTab() {
-  const [storeIds] = useState<string[]>(() => getManagedStoreIds());
+  const { stores, error: listError } = useStores();
+  const idsKey = stores.map((s) => s.id).join(",");
   const [snapshots, setSnapshots] = useState<Record<string, StoreSnapshot>>({});
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
+    const storeIds = idsKey ? idsKey.split(",") : [];
+    if (storeIds.length === 0) {
+      setSnapshots({});
+      return;
+    }
     setLoading(true);
     const results = await Promise.all(storeIds.map(fetchSnapshot));
     setSnapshots(Object.fromEntries(results.map((s) => [s.id, s])));
     setLastUpdated(new Date().toLocaleTimeString("ko-KR", { hour12: false }));
     setLoading(false);
-  }, [storeIds]);
+  }, [idsKey]);
 
   useEffect(() => {
     void refresh();
@@ -29,7 +35,7 @@ export default function OverviewTab() {
     };
   }, [refresh]);
 
-  const list = storeIds.map((id) => snapshots[id]).filter(Boolean) as StoreSnapshot[];
+  const list = stores.map((st) => snapshots[st.id]).filter(Boolean) as StoreSnapshot[];
   const onlineList = list.filter((s) => s.online);
   const sum = (pick: (s: StoreSnapshot) => number | undefined) =>
     onlineList.reduce((acc, s) => acc + (pick(s) ?? 0), 0);
@@ -47,12 +53,14 @@ export default function OverviewTab() {
         </button>
       </div>
 
+      {listError && <p className="op-card__error">⚠️ {listError}</p>}
+
       <section className="op__kpis">
         <div className="op__kpi">
           <div className="op__kpi-label">관리 매장</div>
           <div className="op__kpi-value">
             {onlineList.length}
-            <span className="op__kpi-unit"> / {storeIds.length}</span>
+            <span className="op__kpi-unit"> / {stores.length}</span>
           </div>
           {offlineCount > 0 && (
             <div className="op__kpi-foot op__kpi-foot--warn">{offlineCount}개 오프라인</div>
@@ -79,15 +87,16 @@ export default function OverviewTab() {
       </section>
 
       <div className="op__grid">
-        {storeIds.length === 0 && (
-          <p className="op__empty">관리 중인 매장이 없습니다. '매장 리스트' 탭에서 추가하세요.</p>
+        {stores.length === 0 && (
+          <p className="op__empty">등록된 매장이 없습니다.</p>
         )}
-        {storeIds.map((id) => {
+        {stores.map((store) => {
+          const id = store.id;
           const s = snapshots[id];
           return (
             <article key={id} className={`op-card${s && !s.online ? " op-card--offline" : ""}`}>
               <div className="op-card__head">
-                <span className="op-card__name">{s?.name ?? `매장 #${id}`}</span>
+                <span className="op-card__name">{s?.name ?? store.name}</span>
                 <span className="op-card__id">#{id}</span>
               </div>
 

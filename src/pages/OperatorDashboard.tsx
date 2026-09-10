@@ -6,6 +6,7 @@ import StoreListTab from "@/pages/operator/StoreListTab";
 import StoreRegisterTab from "@/pages/operator/StoreRegisterTab";
 import QrPrintTab from "@/pages/operator/QrPrintTab";
 import PaymentsTab from "@/pages/operator/PaymentsTab";
+import { StoresProvider } from "@/pages/operator/stores";
 
 type OperatorTab = "overview" | "stores" | "register" | "qr" | "payments";
 
@@ -34,6 +35,7 @@ export default function OperatorDashboard() {
   };
 
   return (
+    <StoresProvider>
     <div className="op">
       <header className="op__header op__no-print">
         <div className="op__brand">
@@ -66,5 +68,6 @@ export default function OperatorDashboard() {
         {tab === "payments" && <PaymentsTab />}
       </main>
     </div>
+    </StoresProvider>
   );
 }
