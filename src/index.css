@@ -1,3 +1,11 @@
+/* SUITE ExtraBold — QR 카드(운영자) 텍스트 렌더링용 */
+@font-face {
+  font-family: "SUITE";
+  font-weight: 800;
+  font-display: swap;
+  src: url("./assets/SUITE-ExtraBold.woff2") format("woff2");
+}
+
 /* =========================================================
    을지포차 POS — 디자인 토큰 (DESIGN.md §2)
    ========================================================= */
@@ -1635,14 +1643,14 @@ button {
   font: var(--font-caption);
 }
 
-/* QR 인쇄 */
+/* QR 카드 */
 .qr-print__title {
   font: var(--font-title);
   margin-bottom: var(--space-md);
 }
 .qr-print__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
@@ -1657,16 +1665,25 @@ button {
 .qr-print__item--togo {
   border-color: var(--color-primary);
 }
+/* 카드 이미지: 템플릿과 동일한 세로 비율(561:747) */
 .qr-print__img {
+  display: block;
   width: 100%;
-  max-width: 160px;
-  aspect-ratio: 1;
+  aspect-ratio: 561 / 747;
   object-fit: contain;
 }
 .qr-print__cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   margin-top: var(--space-sm);
   font: var(--font-body);
   font-size: 15px;
+}
+.qr-print__actions {
+  display: inline-flex;
+  gap: var(--space-sm);
 }
 
 /* 매장 리스트: 행/배지/상세 패널 */
@@ -1775,7 +1792,7 @@ button {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* 인쇄: 화면 전용 요소 숨김 */
+/* 인쇄: 화면 전용 요소 숨김, 카드는 페이지당 2장 */
 @media print {
   .op__no-print {
     display: none !important;
@@ -1784,7 +1801,16 @@ button {
     padding: 0;
     gap: 0;
   }
+  .op__main {
+    padding: 0;
+  }
+  .qr-print__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+  }
   .qr-print__item {
     break-inside: avoid;
+    border: none;
+    padding: 0;
   }
 }
