@@ -260,7 +260,12 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
     }
   };
 
-  const addMenuItem = async (name: string, price: number, category: MenuCategory) => {
+  const addMenuItem = async (
+    name: string,
+    price: number,
+    category: MenuCategory,
+    imageFile?: File,
+  ) => {
     try {
       const idByName = categoryIdByName(categories);
       const categoryId = idByName.get(category) ?? categories[0]?.id;
@@ -268,7 +273,15 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
         setNotice("카테고리가 없어 메뉴를 추가할 수 없습니다.");
         return;
       }
-      const created = await menuApi.create({ categoryId, name, price });
+      let created = await menuApi.create({ categoryId, name, price });
+      // 사진은 메뉴 생성 후 별도 엔드포인트로 업로드 (POST /api/pos/menus/{id}/image)
+      if (imageFile) {
+        try {
+          created = await menuApi.uploadImage(created.id, imageFile);
+        } catch (e) {
+          handleError(e, "메뉴는 추가됐지만 사진 업로드에 실패했습니다.");
+        }
+      }
       setMenu((prev) => [...prev, toMenuItem(created, categoryNameMap(categories))]);
     } catch (e) {
       handleError(e, "메뉴를 추가하지 못했습니다.");
@@ -306,6 +319,23 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
       );
     } catch (e) {
       handleError(e, "품절 상태를 변경하지 못했습니다.");
+    }
+  };
+
+  /**
+   * 메뉴 사진 변경 — file 있으면 업로드(교체), null 이면 삭제.
+   * POST/DELETE /api/pos/menus/{id}/image
+   */
+  const setMenuImage = async (id: string, file: File | null) => {
+    try {
+      const updated = file
+        ? await menuApi.uploadImage(Number(id), file)
+        : await menuApi.removeImage(Number(id));
+      setMenu((prev) =>
+        prev.map((m) => (m.id === id ? toMenuItem(updated, categoryNameMap(categories)) : m)),
+      );
+    } catch (e) {
+      handleError(e, file ? "사진을 업로드하지 못했습니다." : "사진을 삭제하지 못했습니다.");
     }
   };
 
@@ -402,6 +432,7 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
             onAddMenu={addMenuItem}
             onUpdateMenu={updateMenuItem}
             onToggleSoldOut={toggleSoldOut}
+            onSetMenuImage={setMenuImage}
             onDeleteMenu={deleteMenuItem}
             account={account}
             onSaveAccount={saveAccount}
