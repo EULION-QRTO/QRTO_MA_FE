@@ -89,6 +89,32 @@ button {
 }
 
 /* =========================================================
+   아이콘 공통 (components/icons.tsx) — 이모지 대체 SVG
+   ========================================================= */
+/* 텍스트 앞에 아이콘을 붙일 때(현장/포장 라벨 등) 쓰는 공통 레이아웃 */
+.icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+/* 상태 점 — 온라인/영업중 = 초록, 오프라인/영업종료 = 회색 */
+.status-dot {
+  flex-shrink: 0;
+}
+.status-dot--on {
+  color: var(--color-state-done);
+}
+.status-dot--off {
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+/* 현장(dine-in) 표시 점 — 브랜드 오렌지 */
+.dot--dinein {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* =========================================================
    App shell (DESIGN.md §3)
    ========================================================= */
 .app {
@@ -505,7 +531,17 @@ button {
   border-bottom: 1px solid var(--color-border);
 }
 .side-section__icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+.side-section__icon .dot--dinein {
+  width: 14px;
+  height: 14px;
+}
+.side-section__icon svg {
+  width: 18px;
+  height: 18px;
 }
 .side-section__title {
   font: var(--font-title);
@@ -584,8 +620,12 @@ button {
   font: var(--font-title);
   font-size: 16px;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-xs);
+}
+.wait-card__label .dot--dinein,
+.wait-card__label svg {
+  flex-shrink: 0;
 }
 .wait-card__orderno {
   font: var(--font-caption);
@@ -1283,6 +1323,10 @@ button {
   .side-switch__tab {
     flex: 1;
     min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
     border-radius: var(--radius-pill);
     font: var(--font-body);
     color: var(--color-text-secondary);

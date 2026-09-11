@@ -1,5 +1,6 @@
 import { formatKRW } from "@/lib/types";
 import logoUrl from "@/assets/lapy_logo.svg";
+import { IconDot, IconRefresh } from "@/components/icons";
 
 export type MainTab = "tables" | "admin";
 
@@ -45,11 +46,12 @@ export default function Header({
         aria-pressed={storeOpen}
         title="영업 상태 전환"
       >
-        {storeOpen ? "🟢 영업중" : "⛔ 영업종료"}
+        <IconDot className={`status-dot${storeOpen ? " status-dot--on" : " status-dot--off"}`} />
+        {storeOpen ? "영업중" : "영업종료"}
       </button>
 
       <button className="header__refresh" onClick={onRefresh} aria-label="새로고침">
-        ↻
+        <IconRefresh />
       </button>
 
       <nav className="segmented" role="tablist">
