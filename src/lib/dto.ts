@@ -84,6 +84,10 @@ export interface AdminStoreResponse {
   takeoutEnabled: boolean;
   open: boolean;
   tableCount: number;
+  /** 정산 계좌 (StoreResponse 와 동일 — 백엔드 목록 응답에 포함 시 사용) */
+  bankName?: string | null;
+  accountNumber?: string | null;
+  accountHolder?: string | null;
   /** 포스 로그인 아이디 */
   username: string;
   /** 오늘 매출(취소 제외) */

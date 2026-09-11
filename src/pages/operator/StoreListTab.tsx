@@ -47,6 +47,17 @@ export default function StoreListTab({ onPrintQr }: Props) {
     void refresh();
   };
 
+  const [copied, setCopied] = useState(false);
+  const copyAccount = async (num: string) => {
+    try {
+      await navigator.clipboard.writeText(num);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* 클립보드 권한 없음 등 무시 */
+    }
+  };
+
   const q = query.trim().toLowerCase();
   const filtered = stores.filter((s) => {
     if (!q) return true;
@@ -103,12 +114,13 @@ export default function StoreListTab({ onPrintQr }: Props) {
               <th>ID</th>
               <th>상태</th>
               <th>오늘 매출</th>
+              <th>정산 계좌</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={5} className="op__table-empty">
+                <td colSpan={6} className="op__table-empty">
                   {stores.length === 0 ? "등록된 매장이 없습니다." : "검색 결과가 없습니다."}
                 </td>
               </tr>
@@ -137,6 +149,18 @@ export default function StoreListTab({ onPrintQr }: Props) {
                       {snap?.online
                         ? formatKRW(snap.totalSales ?? 0)
                         : formatKRW(s.todaySales ?? 0)}
+                    </td>
+                    <td>
+                      {(() => {
+                        const bank = s.bankName ?? snap?.bankName;
+                        const acct = s.accountNumber ?? snap?.accountNumber;
+                        if (!snap && !bank) return "…";
+                        return bank && acct ? (
+                          `${bank} ${acct}`
+                        ) : (
+                          <span className="op__muted">미등록</span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );
@@ -190,6 +214,38 @@ export default function StoreListTab({ onPrintQr }: Props) {
               </div>
             </div>
           )}
+
+          {/* 정산 계좌 (POS 에서 등록) */}
+          {(() => {
+            const bank = selected.bankName ?? selectedSnap?.bankName;
+            const acct = selected.accountNumber ?? selectedSnap?.accountNumber;
+            const holder = selected.accountHolder ?? selectedSnap?.accountHolder;
+            const registered = !!(bank && acct);
+            return (
+              <div className="op-detail__account">
+                <div className="op-detail__account-head">
+                  <span className="op-card__stat-label">정산 계좌</span>
+                  {registered && (
+                    <button className="op__link-btn" onClick={() => void copyAccount(acct!)}>
+                      {copied ? "복사됨" : "계좌번호 복사"}
+                    </button>
+                  )}
+                </div>
+                {registered ? (
+                  <p className="op-detail__account-body">
+                    {bank} <strong>{acct}</strong>
+                    {holder ? ` · ${holder}` : ""}
+                  </p>
+                ) : selectedSnap && !selectedSnap.online ? (
+                  <p className="op__muted">계좌 정보를 불러오지 못했습니다 (오프라인)</p>
+                ) : (
+                  <p className="op__muted">
+                    아직 등록되지 않았습니다 (주점 POS 관리자 화면에서 등록)
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* 운영단체 (로컬 메타 — 서버에 organization 필드 추가 전까지 임시) */}
           <div className="op-detail__meta">

@@ -31,6 +31,10 @@ export interface OpStore {
   /** GET /api/admin/stores 가 함께 주는 집계 */
   todaySales?: number;
   activeOrderCount?: number;
+  /** 정산 계좌 (목록 응답에 있으면) */
+  bankName?: string | null;
+  accountNumber?: string | null;
+  accountHolder?: string | null;
 }
 
 interface StoresValue {
@@ -81,6 +85,9 @@ export function StoresProvider({ children }: { children: ReactNode }) {
           username: s.username,
           todaySales: s.todaySales,
           activeOrderCount: s.activeOrderCount,
+          bankName: s.bankName,
+          accountNumber: s.accountNumber,
+          accountHolder: s.accountHolder,
         }))
         .sort((a, b) => Number(a.id) - Number(b.id));
       setStores(mapped);
