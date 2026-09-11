@@ -1,5 +1,6 @@
 import { Table, orderTotal, formatKRW } from "@/lib/types";
 import { clock, elapsedMin } from "@/lib/time";
+import { IconBell } from "@/components/icons";
 
 const WARNING_MIN = 60;
 
@@ -24,7 +25,11 @@ export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Pr
     else if (table.order) onOpen(table);
   };
 
-  const callBadge = calling ? <span className="table-card__call-badge">🔔 호출</span> : null;
+  const callBadge = calling ? (
+    <span className="table-card__call-badge">
+      <IconBell /> 호출
+    </span>
+  ) : null;
 
   // ── 빈 테이블 ──
   if (!table.order) {
