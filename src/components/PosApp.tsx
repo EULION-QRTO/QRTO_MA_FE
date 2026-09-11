@@ -25,6 +25,7 @@ import {
 } from "@/lib/mappers";
 import type { CategoryResponse, SalesSummaryResponse } from "@/lib/dto";
 import Header, { MainTab } from "@/components/Header";
+import { IconDot } from "@/components/icons";
 import TableCard from "@/components/TableCard";
 import Sidebar from "@/components/Sidebar";
 import OrderDetailModal from "@/components/OrderDetailModal";
@@ -366,7 +367,11 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
             <div className="main__head">
               <h1 className="main__title">테이블 현황</h1>
               <span className="main__meta">
-                {online ? "🟢 실시간" : "⚪ 오프라인"} · 사용중 {occupiedCount} / 전체 {tables.length}
+                <span className="icon-label">
+                  <IconDot className={`status-dot${online ? " status-dot--on" : " status-dot--off"}`} />
+                  {online ? "실시간" : "오프라인"}
+                </span>
+                {" "}· 사용중 {occupiedCount} / 전체 {tables.length}
               </span>
             </div>
             {loading ? (

@@ -1,5 +1,6 @@
 import { Table, orderTotal, formatKRW } from "@/lib/types";
 import { clock, elapsedMin } from "@/lib/time";
+import { IconBell } from "@/components/icons";
 
 const WARNING_MIN = 60;
 
@@ -23,7 +24,7 @@ export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Pr
       }}
       aria-label={`${table.number}번 테이블 직원 호출 — 탭하여 해제`}
     >
-      🔔 호출
+      <IconBell /> 호출
     </button>
   ) : null;
 
