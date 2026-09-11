@@ -79,6 +79,17 @@ export const menuApi = {
   /** PATCH /api/pos/menus/{menuId}/sold-out */
   setSoldOut: (menuId: number, soldOut: boolean) =>
     http.patch<MenuResponse>(`/api/pos/menus/${menuId}/sold-out`, { body: { soldOut } }),
+  /**
+   * POST /api/pos/menus/{menuId}/image — 메뉴 사진 업로드(교체).
+   * JPEG/PNG/WebP, 5MB·한 변 12000px 이하. 서버가 리사이즈해 S3 URL 로 imageUrl 갱신.
+   */
+  uploadImage: (menuId: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<MenuResponse>(`/api/pos/menus/${menuId}/image`, { form });
+  },
+  /** DELETE /api/pos/menus/{menuId}/image — 사진 삭제(imageUrl=null) */
+  removeImage: (menuId: number) => http.delete<MenuResponse>(`/api/pos/menus/${menuId}/image`),
   /** DELETE /api/pos/menus/{menuId} */
   remove: (menuId: number) => http.delete<null>(`/api/pos/menus/${menuId}`),
 };

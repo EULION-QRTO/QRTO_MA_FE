@@ -1150,6 +1150,21 @@ button {
   place-items: center;
   box-shadow: var(--shadow-card);
 }
+/* 형식/용량 오류 안내 — 썸네일 아래 떠서 레이아웃을 밀지 않음 */
+.thumb__error {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--color-text-primary);
+  color: #fff;
+  font: var(--font-caption);
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+}
 
 /* 메뉴 추가 폼 */
 .menu-add {
