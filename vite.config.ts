@@ -5,12 +5,12 @@ import { fileURLToPath, URL } from "node:url";
 // 순수 React SPA (Vite). "@/*" 별칭은 src 를 가리킨다.
 //
 // 로컬 개발용 프록시:
-//   백엔드(https://api.lapy.shop)의 CORS 허용 출처가 https://lapy.shop 뿐이라
+//   백엔드(https://api.lapy.shop)의 CORS 허용 출처가 https://lpay-pos.vercel.app 뿐이라
 //   브라우저에서 localhost → api.lapy.shop 직접 호출은 차단된다.
 //   dev 서버가 /api·/ws 요청을 api.lapy.shop 로 대신 중계하고,
-//   백엔드가 통과시키도록 Origin 을 https://lapy.shop 으로 바꿔 보낸다.
+//   백엔드가 통과시키도록 Origin 을 https://lpay-pos.vercel.app 으로 바꿔 보낸다.
 const API_TARGET = "https://api.lapy.shop";
-const ALLOWED_ORIGIN = "https://lapy.shop";
+const ALLOWED_ORIGIN = "https://lpay-pos.vercel.app";
 
 export default defineConfig({
   plugins: [react()],
