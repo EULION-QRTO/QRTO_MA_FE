@@ -219,8 +219,8 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
   /** 직원 호출 해제 — 테이블의 진행중(CALLED) 호출을 모두 RESOLVED 처리 */
   const resolveStaffCall = async (tableId: number) => {
     try {
-      const calls = await staffCallApi.list();
-      const targets = calls.filter((c) => c.tableId === tableId && c.status === "CALLED");
+      const active = await staffCallApi.list(true);
+      const targets = active.filter((c) => c.tableId === tableId);
       if (targets.length === 0) {
         await reloadTables();
         return;

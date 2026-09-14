@@ -122,9 +122,12 @@ async function request<T>(
 }
 
 /** 이미지(PNG) 바이트 응답 → object URL. envelope 로 감싸지 않는 엔드포인트 전용. */
-export async function fetchImageObjectUrl(path: string): Promise<string> {
+export async function fetchImageObjectUrl(
+  path: string,
+  query?: RequestOptions["query"],
+): Promise<string> {
   const token = getToken();
-  const res = await fetch(buildUrl(path), {
+  const res = await fetch(buildUrl(path, query), {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new ApiError(String(res.status), "이미지 요청 실패", res.status);
