@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { WaitingOrder, WaitStage } from "@/lib/types";
 import WaitingOrderCard from "./WaitingOrderCard";
+import { IconDot, IconBox } from "@/components/icons";
 
 interface Props {
   orders: WaitingOrder[];
@@ -18,7 +19,7 @@ function Section({
   onCancel,
   hidden,
 }: {
-  icon: string;
+  icon: ReactNode;
   title: string;
   orders: WaitingOrder[];
   now: number;
@@ -71,7 +72,7 @@ export default function Sidebar({ orders, now, onSetStage, onCancel }: Props) {
           className={`side-switch__tab${mobileTab === "dine-in" ? " side-switch__tab--active" : ""}`}
           onClick={() => setMobileTab("dine-in")}
         >
-          🟠 현장 ({dineIn.length})
+          <IconDot className="dot dot--dinein" /> 현장 ({dineIn.length})
         </button>
         <button
           role="tab"
@@ -79,12 +80,12 @@ export default function Sidebar({ orders, now, onSetStage, onCancel }: Props) {
           className={`side-switch__tab${mobileTab === "takeout" ? " side-switch__tab--active" : ""}`}
           onClick={() => setMobileTab("takeout")}
         >
-          📦 포장 ({takeout.length})
+          <IconBox /> 포장 ({takeout.length})
         </button>
       </div>
 
       <Section
-        icon="🟠"
+        icon={<IconDot className="dot dot--dinein" />}
         title="현장 주문 대기"
         orders={dineIn}
         now={now}
@@ -93,7 +94,7 @@ export default function Sidebar({ orders, now, onSetStage, onCancel }: Props) {
         hidden={mobileTab !== "dine-in"}
       />
       <Section
-        icon="📦"
+        icon={<IconBox />}
         title="포장 주문 대기"
         orders={takeout}
         now={now}

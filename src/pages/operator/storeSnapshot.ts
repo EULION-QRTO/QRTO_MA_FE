@@ -16,6 +16,10 @@ export interface StoreSnapshot {
   totalSales?: number;
   orderCount?: number;
   canceledCount?: number;
+  /** 정산 계좌 (POS 에서 등록 → PATCH /api/pos/store) */
+  bankName?: string | null;
+  accountNumber?: string | null;
+  accountHolder?: string | null;
 }
 
 /** 매장 하나의 현황을 여러 API 로 모아 스냅샷 생성. 실패 시 online:false. */
@@ -38,6 +42,9 @@ export async function fetchSnapshot(id: string): Promise<StoreSnapshot> {
       totalSales: summary.totalSales,
       orderCount: summary.orderCount,
       canceledCount: summary.canceledCount,
+      bankName: store.bankName,
+      accountNumber: store.accountNumber,
+      accountHolder: store.accountHolder,
     };
   } catch (e) {
     return {

@@ -1,3 +1,57 @@
+/* SUITE ExtraBold — QR 카드(운영자) 텍스트 렌더링용 */
+@font-face {
+  font-family: "SUITE";
+  font-weight: 800;
+  font-display: swap;
+  src: url("./assets/SUITE-ExtraBold.woff2") format("woff2");
+}
+
+/* =========================================================
+   SUITE — POS 전역 서체
+   ========================================================= */
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "SUITE";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-2@1.0/SUITE-Heavy.woff2") format("woff2");
+  font-weight: 900;
+  font-display: swap;
+}
+
 /* =========================================================
    을지포차 POS — 디자인 토큰 (DESIGN.md §2)
    ========================================================= */
@@ -38,7 +92,7 @@
   --font-body: 500 16px/1.4 var(--font-sans);
   --font-caption: 400 13px/1.4 var(--font-sans);
   --font-badge: 700 12px/1 var(--font-sans);
-  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+  --font-sans: "SUITE", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
     "Segoe UI", Roboto, sans-serif;
 
   /* Radius */
@@ -86,6 +140,32 @@ button {
   /* iPad 터치: 탭 시 회색 플래시 제거 + 300ms 지연/더블탭 확대 방지 */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* =========================================================
+   아이콘 공통 (components/icons.tsx) — 이모지 대체 SVG
+   ========================================================= */
+/* 텍스트 앞에 아이콘을 붙일 때(현장/포장 라벨 등) 쓰는 공통 레이아웃 */
+.icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+/* 상태 점 — 온라인/영업중 = 초록, 오프라인/영업종료 = 회색 */
+.status-dot {
+  flex-shrink: 0;
+}
+.status-dot--on {
+  color: var(--color-state-done);
+}
+.status-dot--off {
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
+/* 현장(dine-in) 표시 점 — 브랜드 오렌지 */
+.dot--dinein {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
 /* =========================================================
@@ -369,6 +449,10 @@ button {
   justify-content: center;
   cursor: default;
 }
+/* 빈 테이블이라도 호출 중이면 탭 가능(해제) */
+.table-card--empty.table-card--calling {
+  cursor: pointer;
+}
 .table-card--empty .table-card__num {
   font: 700 20px / 1 var(--font-sans);
   color: var(--color-text-secondary);
@@ -501,7 +585,17 @@ button {
   border-bottom: 1px solid var(--color-border);
 }
 .side-section__icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+}
+.side-section__icon .dot--dinein {
+  width: 14px;
+  height: 14px;
+}
+.side-section__icon svg {
+  width: 18px;
+  height: 18px;
 }
 .side-section__title {
   font: var(--font-title);
@@ -580,8 +674,12 @@ button {
   font: var(--font-title);
   font-size: 16px;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-xs);
+}
+.wait-card__label .dot--dinein,
+.wait-card__label svg {
+  flex-shrink: 0;
 }
 .wait-card__orderno {
   font: var(--font-caption);
@@ -1150,6 +1248,21 @@ button {
   place-items: center;
   box-shadow: var(--shadow-card);
 }
+/* 형식/용량 오류 안내 — 썸네일 아래 떠서 레이아웃을 밀지 않음 */
+.thumb__error {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--color-text-primary);
+  color: #fff;
+  font: var(--font-caption);
+  font-size: 11px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+}
 
 /* 메뉴 추가 폼 */
 .menu-add {
@@ -1279,6 +1392,10 @@ button {
   .side-switch__tab {
     flex: 1;
     min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
     border-radius: var(--radius-pill);
     font: var(--font-body);
     color: var(--color-text-secondary);
@@ -1635,14 +1752,14 @@ button {
   font: var(--font-caption);
 }
 
-/* QR 인쇄 */
+/* QR 카드 */
 .qr-print__title {
   font: var(--font-title);
   margin-bottom: var(--space-md);
 }
 .qr-print__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
@@ -1657,16 +1774,25 @@ button {
 .qr-print__item--togo {
   border-color: var(--color-primary);
 }
+/* 카드 이미지: 템플릿과 동일한 세로 비율(561:747) */
 .qr-print__img {
+  display: block;
   width: 100%;
-  max-width: 160px;
-  aspect-ratio: 1;
+  aspect-ratio: 561 / 747;
   object-fit: contain;
 }
 .qr-print__cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   margin-top: var(--space-sm);
   font: var(--font-body);
   font-size: 15px;
+}
+.qr-print__actions {
+  display: inline-flex;
+  gap: var(--space-sm);
 }
 
 /* 매장 리스트: 행/배지/상세 패널 */
@@ -1749,6 +1875,30 @@ button {
   gap: var(--space-sm);
 }
 
+/* 정산 계좌 (운영자 상세 패널) */
+.op-detail__account {
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+.op-detail__account-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+.op-detail__account-body {
+  font: var(--font-body);
+}
+.op-detail__account-body strong {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.op__muted {
+  color: var(--color-text-secondary);
+  font: var(--font-caption);
+}
+
 /* 헤더 영업 개폐 토글 */
 .header__open-toggle {
   flex-shrink: 0;
@@ -1775,7 +1925,7 @@ button {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* 인쇄: 화면 전용 요소 숨김 */
+/* 인쇄: 화면 전용 요소 숨김, 카드는 페이지당 2장 */
 @media print {
   .op__no-print {
     display: none !important;
@@ -1784,7 +1934,16 @@ button {
     padding: 0;
     gap: 0;
   }
+  .op__main {
+    padding: 0;
+  }
+  .qr-print__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+  }
   .qr-print__item {
     break-inside: avoid;
+    border: none;
+    padding: 0;
   }
 }

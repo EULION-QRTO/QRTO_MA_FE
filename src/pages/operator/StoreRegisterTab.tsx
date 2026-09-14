@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { getManagedStores, removeManagedStore, type ManagedStore } from "@/lib/operator";
 import { createStore } from "@/lib/storeRegistry";
+import { useStores } from "@/pages/operator/stores";
 
 /**
- * 매장 등록 — 로컬 우선 + 서버 동기화.
- * 서버 생성 API(POST /api/stores)가 있으면 서버에 저장되고, 없으면 로컬에만 저장된다.
- * 등록된 매장은 '매장 리스트'·'개요'에 즉시 반영된다.
+ * 매장 등록 — POST /api/admin/stores.
+ * 운영자가 주점 로그인 자격증명을 사전 설정한다. 등록되면 '매장 리스트'·'개요'·'QR 인쇄'에 즉시 반영.
  */
 export default function StoreRegisterTab() {
+  const { stores, refresh } = useStores();
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
   const [takeoutEnabled, setTakeoutEnabled] = useState(true);
@@ -16,13 +16,12 @@ export default function StoreRegisterTab() {
   const [password2, setPassword2] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [stores, setStores] = useState<ManagedStore[]>(() => getManagedStores());
 
   const pwMismatch = password2 !== "" && password !== password2;
   const valid =
     name.trim() !== "" &&
     username.trim() !== "" &&
-    password !== "" &&
+    password.length >= 8 &&
     password === password2;
 
   const submit = async (e: React.FormEvent) => {
@@ -37,27 +36,25 @@ export default function StoreRegisterTab() {
       username: username.trim(),
       password,
     });
-    setStores(getManagedStores());
-    setResult(
-      res.syncedToServer
-        ? { ok: true, msg: `서버에 등록되었습니다 (매장 #${res.store.id}, 아이디 ${username.trim()}).` }
-        : {
-            ok: false,
-            msg: `로컬에만 저장되었습니다(아이디만 보관, 비밀번호 미저장). 서버 저장 실패: ${res.error ?? "API 미구현"}`,
-          },
-    );
-    setName("");
-    setOrg("");
-    setTakeoutEnabled(true);
-    setUsername("");
-    setPassword("");
-    setPassword2("");
+    if (res.syncedToServer && res.store) {
+      setResult({
+        ok: true,
+        msg: `등록되었습니다 (매장 #${res.store.id}, 아이디 ${username.trim()}).`,
+      });
+      setName("");
+      setOrg("");
+      setTakeoutEnabled(true);
+      setUsername("");
+      setPassword("");
+      setPassword2("");
+      void refresh();
+    } else {
+      setResult({
+        ok: false,
+        msg: `서버 등록 실패: ${res.error ?? "알 수 없는 오류"}`,
+      });
+    }
     setBusy(false);
-  };
-
-  const remove = (id: string) => {
-    removeManagedStore(id);
-    setStores(getManagedStores());
   };
 
   return (
@@ -67,9 +64,9 @@ export default function StoreRegisterTab() {
       </div>
 
       <div className="op__notice op__notice--pending">
-        ⓘ 운영자가 주점 <strong>로그인 아이디·비밀번호를 사전 설정</strong>합니다. 매장은 로컬에
-        즉시 저장되고, 서버 생성 API(<code>POST /api/stores</code>)가 준비되면 자격증명과 함께 서버에
-        저장됩니다(비밀번호는 서버 전송용으로만 쓰고 <strong>로컬에는 저장하지 않음</strong>).
+        ⓘ 운영자가 주점 <strong>로그인 아이디·비밀번호(8자 이상)를 사전 설정</strong>합니다.
+        <code>POST /api/admin/stores</code> 로 서버에 매장·계정이 생성되며, 비밀번호는 전송 후
+        <strong> 로컬에 저장하지 않습니다</strong>. 운영단체는 서버에 필드가 생기기 전까지 로컬 메타로 보관됩니다.
       </div>
 
       <form className="op-form" onSubmit={submit}>
@@ -107,7 +104,7 @@ export default function StoreRegisterTab() {
             className="field"
             type="password"
             autoComplete="new-password"
-            placeholder="비밀번호"
+            placeholder="8자 이상"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -161,30 +158,16 @@ export default function StoreRegisterTab() {
                 <th>로그인 아이디</th>
                 <th>ID</th>
                 <th>포장</th>
-                <th>저장</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               {stores.map((s) => (
                 <tr key={s.id}>
-                  <td>{s.name ?? `매장 #${s.id}`}</td>
-                  <td>{s.org ?? "—"}</td>
+                  <td>{s.name}</td>
+                  <td>{s.organization ?? "—"}</td>
                   <td>{s.username ?? "—"}</td>
                   <td>#{s.id}</td>
-                  <td>{s.takeoutEnabled === false ? "미사용" : "사용"}</td>
-                  <td>
-                    {s.synced ? (
-                      <span className="op__badge op__badge--on">서버</span>
-                    ) : (
-                      <span className="op__badge op__badge--off">로컬</span>
-                    )}
-                  </td>
-                  <td>
-                    <button className="op__link-btn" onClick={() => remove(s.id)}>
-                      삭제
-                    </button>
-                  </td>
+                  <td>{s.takeoutEnabled ? "사용" : "미사용"}</td>
                 </tr>
               ))}
             </tbody>

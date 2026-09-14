@@ -8,6 +8,7 @@ import {
   formatKRW,
 } from "@/lib/types";
 import { agoLabel, elapsedMin } from "@/lib/time";
+import { IconDot, IconBox } from "@/components/icons";
 
 const WARNING_MIN = 15;
 
@@ -31,7 +32,15 @@ export default function WaitingOrderCard({ order, now, onSetStage, onCancel }: P
     <article className={`wait-card${order.isNew ? " wait-card--new" : ""}`}>
       <div className="wait-card__top">
         <span className="wait-card__label">
-          {isDineIn ? `🟠 ${order.tableNumber}번 테이블` : "📦 포장"}
+          {isDineIn ? (
+            <>
+              <IconDot className="dot dot--dinein" /> {order.tableNumber}번 테이블
+            </>
+          ) : (
+            <>
+              <IconBox /> 포장
+            </>
+          )}
           {order.orderNo && <span className="wait-card__orderno">주문 {order.orderNo}</span>}
         </span>
         <span className={`wait-card__time${isWarning ? " wait-card__time--warning" : ""}`}>

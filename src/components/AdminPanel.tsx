@@ -12,17 +12,83 @@ import SalesSummaryCard from "@/components/SalesSummaryCard";
 const MIN_TABLES = 32;
 const MAX_TABLES = 100;
 
+/** 메뉴 사진 허용 형식·용량 (POST /api/pos/menus/{id}/image 명세) */
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
 interface Props {
   tableCount: number;
   onTableCountChange: (count: number) => void;
   menu: MenuItem[];
-  onAddMenu: (name: string, price: number, category: MenuCategory) => void;
+  onAddMenu: (name: string, price: number, category: MenuCategory, imageFile?: File) => void;
   onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id" | "image" | "soldOut">>) => void;
   /** 품절 토글 */
   onToggleSoldOut: (id: string, soldOut: boolean) => void;
+  /** 메뉴 사진 업로드/삭제. file=null 이면 삭제. */
+  onSetMenuImage: (id: string, file: File | null) => void;
   onDeleteMenu: (id: string) => void;
   account: SettlementAccount;
   onSaveAccount: (account: SettlementAccount) => void;
+}
+
+/** 허용 형식·용량 검사. 통과 못하면 안내 메시지 반환. */
+function validateImage(file: File): string | null {
+  if (!IMAGE_TYPES.includes(file.type)) return "JPEG·PNG·WebP 파일만 업로드할 수 있습니다.";
+  if (file.size > IMAGE_MAX_BYTES) return "5MB 이하 사진만 업로드할 수 있습니다.";
+  return null;
+}
+
+function ImagePicker({
+  value,
+  onPick,
+  onClear,
+  label,
+}: {
+  value?: string;
+  onPick: (file: File) => void;
+  onClear?: () => void;
+  label: string;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  const pick = (file: File) => {
+    const err = validateImage(file);
+    if (err) {
+      setError(err);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    onPick(file);
+  };
+
+  return (
+    <div className="thumb-wrap">
+      <label className="thumb" title={error ?? label} aria-label={label}>
+        {value ? (
+          <img src={value} alt="" className="thumb__img" />
+        ) : (
+          <span className="thumb__ph">📷</span>
+        )}
+        <input
+          type="file"
+          accept={IMAGE_ACCEPT}
+          className="thumb__input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) pick(file);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {value && onClear && (
+        <button type="button" className="thumb__clear" onClick={onClear} aria-label="사진 제거">
+          ✕
+        </button>
+      )}
+      {error && <p className="thumb__error">{error}</p>}
+    </div>
+  );
 }
 
 export default function AdminPanel({
@@ -32,6 +98,7 @@ export default function AdminPanel({
   onAddMenu,
   onUpdateMenu,
   onToggleSoldOut,
+  onSetMenuImage,
   onDeleteMenu,
   account,
   onSaveAccount,
@@ -39,6 +106,20 @@ export default function AdminPanel({
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newCategory, setNewCategory] = useState<MenuCategory>(DEFAULT_MENU_CATEGORY);
+  const [newImageFile, setNewImageFile] = useState<File | undefined>(undefined);
+  const [newImagePreview, setNewImagePreview] = useState<string | undefined>(undefined);
+
+  // 새 메뉴 사진 선택: 로컬 미리보기(objectURL) 생성 후 파일 보관 (실제 업로드는 메뉴 생성 후)
+  const pickNewImage = (file: File) => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(file);
+    setNewImagePreview(URL.createObjectURL(file));
+  };
+  const clearNewImage = () => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(undefined);
+    setNewImagePreview(undefined);
+  };
 
   // 정산 계좌 편집 초안 (저장 시 커밋)
   const [acctDraft, setAcctDraft] = useState<SettlementAccount>(account);
@@ -86,9 +167,10 @@ export default function AdminPanel({
     const name = newName.trim();
     const price = parseInt(newPrice, 10);
     if (!name || Number.isNaN(price) || price < 0) return;
-    onAddMenu(name, price, newCategory);
+    onAddMenu(name, price, newCategory, newImageFile);
     setNewName("");
     setNewPrice("");
+    clearNewImage();
     setNewCategory(DEFAULT_MENU_CATEGORY);
   };
 
@@ -200,6 +282,12 @@ export default function AdminPanel({
         </div>
 
         <div className="menu-add">
+          <ImagePicker
+            value={newImagePreview}
+            onPick={pickNewImage}
+            onClear={clearNewImage}
+            label="메뉴 사진 첨부 (선택)"
+          />
           <select
             className="field field--select"
             value={newCategory}
@@ -237,6 +325,12 @@ export default function AdminPanel({
           {menu.length === 0 && <li className="menu-list__empty">등록된 메뉴가 없습니다</li>}
           {menu.map((item) => (
             <li className={`menu-row${item.soldOut ? " menu-row--soldout" : ""}`} key={item.id}>
+              <ImagePicker
+                value={item.image}
+                onPick={(file) => onSetMenuImage(item.id, file)}
+                onClear={() => onSetMenuImage(item.id, null)}
+                label={`${item.name} 사진`}
+              />
               <select
                 className="field field--select"
                 value={item.category}

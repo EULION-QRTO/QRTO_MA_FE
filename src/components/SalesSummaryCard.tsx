@@ -4,6 +4,7 @@ import { salesApi } from "@/lib/endpoints";
 import type { OrderResponse, SalesSummaryResponse } from "@/lib/dto";
 import { ApiError } from "@/lib/api";
 import { formatKRW } from "@/lib/types";
+import { IconDot, IconBox } from "@/components/icons";
 
 /** 오늘 날짜(Asia/Seoul) 를 YYYY-MM-DD 로 */
 const todaySeoul = (): string =>
@@ -159,11 +160,15 @@ export default function SalesSummaryCard() {
           <div className="admin__total-value">{formatKRW(summary.totalSales)}</div>
           <div className="admin__grid">
             <div className="admin__stat">
-              <div className="admin__stat-label">🟠 현장 주문 매출</div>
+              <div className="admin__stat-label icon-label">
+                <IconDot className="dot dot--dinein" /> 현장 주문 매출
+              </div>
               <div className="admin__stat-value">{formatKRW(summary.dineInSales)}</div>
             </div>
             <div className="admin__stat">
-              <div className="admin__stat-label">📦 포장 주문 매출</div>
+              <div className="admin__stat-label icon-label">
+                <IconBox /> 포장 주문 매출
+              </div>
               <div className="admin__stat-value">{formatKRW(summary.takeoutSales)}</div>
             </div>
             <div className="admin__stat">
