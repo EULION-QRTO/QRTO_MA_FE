@@ -69,6 +69,9 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
 
   // 최신 tableId→번호 매핑 (실시간 이벤트 매핑용)
   const numMapRef = useRef<Map<number, number>>(new Map());
+  // 방금 이 화면에서 취소한 주문 id. 취소 직후 도착하는 오래된(반영 전) 목록 응답이
+  // 되살리지 못하도록 reloadTablesAndOrders 에서 항상 걸러낸다.
+  const canceledIdsRef = useRef<Set<string>>(new Set());
 
   /** ApiError 처리: 401 이면 로그인으로, 그 외엔 배너 표시 */
   const handleError = useCallback(
@@ -103,7 +106,12 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
         orderApi.list(),
       ]);
       const numMap = applyTableStatus(tsList);
-      setWaiting(orders.filter(isActiveWaiting).map((o) => toWaitingOrder(o, numMap)));
+      setWaiting(
+        orders
+          .filter(isActiveWaiting)
+          .filter((o) => !canceledIdsRef.current.has(String(o.id)))
+          .map((o) => toWaitingOrder(o, numMap)),
+      );
     } catch (e) {
       handleError(e, "주문 현황을 불러오지 못했습니다.");
     }
@@ -201,6 +209,10 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
   const cancelOrder = async (id: string) => {
     try {
       await orderApi.setStatus(Number(id), "CANCELED");
+      // 목록 재조회를 기다리지 않고 즉시 화면에서 제거 (재조회 응답이 아직 반영 전이라도
+      // canceledIdsRef 가드로 되살아나지 않는다).
+      canceledIdsRef.current.add(id);
+      setWaiting((prev) => prev.filter((o) => o.id !== id));
       await Promise.all([reloadTablesAndOrders(), reloadSales()]);
     } catch (e) {
       handleError(e, "주문을 취소하지 못했습니다.");
