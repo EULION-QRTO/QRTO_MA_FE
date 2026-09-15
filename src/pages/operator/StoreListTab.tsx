@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { formatKRW } from "@/lib/types";
 import { fetchSnapshot, type StoreSnapshot } from "./storeSnapshot";
 import { useStores, setStoreOrgMeta, type OpStore } from "@/pages/operator/stores";
+import { adminApi } from "@/lib/endpoints";
+import { ApiError } from "@/lib/api";
 
 interface Props {
   /** QR 인쇄 탭으로 이동 (해당 매장 ID prefill) */
@@ -17,6 +19,9 @@ export default function StoreListTab({ onPrintQr }: Props) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editOrg, setEditOrg] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const idsKey = stores.map((s) => s.id).join(",");
 
@@ -39,12 +44,32 @@ export default function StoreListTab({ onPrintQr }: Props) {
   const openDetail = (store: OpStore) => {
     setSelectedId(store.id);
     setEditOrg(store.organization ?? "");
+    setConfirmingDelete(false);
+    setDeleteError(null);
   };
 
   const saveOrg = () => {
     if (!selectedId) return;
     setStoreOrgMeta(selectedId, editOrg);
     void refresh();
+  };
+
+  const deleteStore = async () => {
+    if (!selectedId || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await adminApi.stores.remove(selectedId);
+      setConfirmingDelete(false);
+      setSelectedId(null);
+      await refresh();
+    } catch (e) {
+      setDeleteError(
+        e instanceof ApiError ? `삭제하지 못했습니다 (${e.code}) · ${e.message}` : "삭제하지 못했습니다.",
+      );
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const [copied, setCopied] = useState(false);
@@ -263,12 +288,46 @@ export default function StoreListTab({ onPrintQr }: Props) {
             </button>
           </div>
 
+          {deleteError && <p className="op-card__error">⚠️ {deleteError}</p>}
+
           <div className="op-detail__actions">
             <button className="btn btn--sm btn--primary" onClick={() => onPrintQr(selected.id)}>
               🖨 QR 인쇄
             </button>
+            <button
+              className="btn btn--sm btn--destructive"
+              onClick={() => setConfirmingDelete(true)}
+              disabled={deleting}
+            >
+              🗑 매장 삭제
+            </button>
           </div>
         </section>
+      )}
+
+      {confirmingDelete && selected && (
+        <div className="modal-overlay" onClick={() => !deleting && setConfirmingDelete(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <p className="dialog__msg">
+              <strong>{displayName(selected, selectedSnap)}</strong>(#{selected.id}) 매장을
+              삭제하시겠습니까?
+              <br />
+              삭제하면 되돌릴 수 없습니다.
+            </p>
+            <div className="dialog__actions">
+              <button
+                className="btn btn--secondary"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+              >
+                취소
+              </button>
+              <button className="btn btn--destructive" onClick={() => void deleteStore()} disabled={deleting}>
+                {deleting ? "삭제 중…" : "매장 삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

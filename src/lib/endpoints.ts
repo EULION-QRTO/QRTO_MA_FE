@@ -213,6 +213,8 @@ export const adminApi = {
     /** PATCH /api/admin/stores/{storeId}/account/password — 포스 비번 초기화 */
     resetPassword: (storeId: string | number, password: string) =>
       http.patch<null>(`/api/admin/stores/${storeId}/account/password`, { body: { password } }),
+    /** DELETE /api/admin/stores/{storeId} — 매장 삭제 */
+    remove: (storeId: string | number) => http.delete<null>(`/api/admin/stores/${storeId}`),
   },
   /** GET /api/admin/sales/summary?date= — 전 매장 매출 합산 */
   salesSummaryAll: (date?: string) =>
