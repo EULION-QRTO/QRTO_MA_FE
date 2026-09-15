@@ -17,44 +17,68 @@ export default function StoreRegisterTab() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  const pwTooShort = password !== "" && password.length < 8;
   const pwMismatch = password2 !== "" && password !== password2;
-  const valid =
-    name.trim() !== "" &&
-    username.trim() !== "" &&
-    password.length >= 8 &&
-    password === password2;
+
+  /**
+   * 제출 막는 이유를 모두 모은다. 버튼을 disabled 로만 막으면 사용자가 이유를
+   * 알 방법이 없어 "눌러도 아무 반응 없음"으로 보인다 — submit 에서 항상 이 목록을
+   * 화면에 보여준다.
+   */
+  const blockers = (): string[] => {
+    const reasons: string[] = [];
+    if (name.trim() === "") reasons.push("주점 이름을 입력해 주세요.");
+    if (username.trim() === "") reasons.push("로그인 아이디를 입력해 주세요.");
+    if (password === "") reasons.push("비밀번호를 입력해 주세요.");
+    else if (password.length < 8) reasons.push("비밀번호는 8자 이상이어야 합니다.");
+    if (password !== "" && password2 === "") reasons.push("비밀번호 확인을 입력해 주세요.");
+    else if (pwMismatch) reasons.push("비밀번호가 일치하지 않습니다.");
+    return reasons;
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid || busy) return;
+    if (busy) return;
+    const reasons = blockers();
+    if (reasons.length > 0) {
+      setResult({ ok: false, msg: reasons.join(" ") });
+      return;
+    }
     setBusy(true);
     setResult(null);
-    const res = await createStore({
-      name: name.trim(),
-      org: org.trim() || undefined,
-      takeoutEnabled,
-      username: username.trim(),
-      password,
-    });
-    if (res.syncedToServer && res.store) {
-      setResult({
-        ok: true,
-        msg: `등록되었습니다 (매장 #${res.store.id}, 아이디 ${username.trim()}).`,
+    try {
+      const res = await createStore({
+        name: name.trim(),
+        org: org.trim() || undefined,
+        takeoutEnabled,
+        username: username.trim(),
+        password,
       });
-      setName("");
-      setOrg("");
-      setTakeoutEnabled(true);
-      setUsername("");
-      setPassword("");
-      setPassword2("");
-      void refresh();
-    } else {
-      setResult({
-        ok: false,
-        msg: `서버 등록 실패: ${res.error ?? "알 수 없는 오류"}`,
-      });
+      if (res.syncedToServer && res.store) {
+        setResult({
+          ok: true,
+          msg: `등록되었습니다 (매장 #${res.store.id}, 아이디 ${username.trim()}).`,
+        });
+        setName("");
+        setOrg("");
+        setTakeoutEnabled(true);
+        setUsername("");
+        setPassword("");
+        setPassword2("");
+        void refresh();
+      } else {
+        setResult({
+          ok: false,
+          msg: `서버 등록 실패: ${res.error ?? "알 수 없는 오류"}`,
+        });
+      }
+    } catch {
+      // createStore 가 ApiError 를 모두 흡수하므로 정상 흐름에선 여기 닿지 않는다.
+      // 예기치 못한 예외까지 방어해 버튼이 "등록 중…" 상태로 멈춰있지 않게 한다.
+      setResult({ ok: false, msg: "등록 중 알 수 없는 오류가 발생했습니다. 다시 시도해 주세요." });
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   return (
@@ -101,7 +125,7 @@ export default function StoreRegisterTab() {
         <label className="op-form__field">
           <span className="op-form__label">비밀번호</span>
           <input
-            className="field"
+            className={`field${pwTooShort ? " field--error" : ""}`}
             type="password"
             autoComplete="new-password"
             placeholder="8자 이상"
@@ -109,6 +133,7 @@ export default function StoreRegisterTab() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
+        {pwTooShort && <span className="op-form__err">비밀번호는 8자 이상이어야 합니다.</span>}
         <label className="op-form__field">
           <span className="op-form__label">비밀번호 확인</span>
           <input
@@ -128,7 +153,7 @@ export default function StoreRegisterTab() {
           />
           <span>포장(TOGO) 주문 사용</span>
         </label>
-        <button className="btn btn--primary" type="submit" disabled={!valid || busy}>
+        <button className="btn btn--primary" type="submit" disabled={busy}>
           {busy ? "등록 중…" : "등록"}
         </button>
         {pwMismatch && <span className="op-form__err">비밀번호가 일치하지 않습니다.</span>}
