@@ -77,7 +77,13 @@ async function request<T>(
 
   let res: Response;
   try {
-    res = await fetch(buildUrl(path, query), { method, headers, body: payload, signal: controller.signal });
+    res = await fetch(buildUrl(path, query), {
+      method,
+      headers,
+      body: payload,
+      signal: controller.signal,
+      cache: "no-store",
+    });
   } catch (e) {
     if ((e as Error).name === "AbortError") {
       if (timedOut) throw new ApiError("TIMEOUT", "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.", 0);
