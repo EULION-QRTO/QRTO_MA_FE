@@ -1230,8 +1230,23 @@ button {
   font-size: 18px;
   opacity: 0.55;
 }
+/*
+ * display:none 인 파일 input 은 iOS/iPadOS Safari 에서 label 을 탭해도
+ * 파일 선택창(카메라/사진 라이브러리)이 열리지 않는 경우가 있다(WebKit 이
+ * display:none 인 input 을 상호작용 대상에서 제외). 시각적으로만 숨기고
+ * (visually-hidden) 실제로는 렌더링된 상태를 유지해야 안전하다.
+ */
 .thumb__input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
 }
 .thumb__clear {
   position: absolute;
