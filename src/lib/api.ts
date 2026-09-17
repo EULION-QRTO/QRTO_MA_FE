@@ -82,13 +82,20 @@ async function request<T>(
       headers,
       body: payload,
       signal: controller.signal,
-      cache: "no-store",
+      // GET 재조회가 브라우저/중간 캐시의 오래된 응답을 받지 않도록 함.
+      // POST/PATCH/PUT/DELETE 는 원래 캐시 대상이 아니라 의미가 없고,
+      // 오히려 일부 iOS/iPadOS Safari 버전은 FormData(멀티파트) 바디 +
+      // cache:"no-store" 조합에서 fetch 자체가 즉시 실패하는(=NETWORK 오류로
+      // 보이는) 버그가 있어 GET 에만 한정한다.
+      cache: method === "GET" ? "no-store" : undefined,
     });
   } catch (e) {
     if ((e as Error).name === "AbortError") {
       if (timedOut) throw new ApiError("TIMEOUT", "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.", 0);
       throw e; // 외부에서 취소한 경우
     }
+    // 원인 파악용 — ApiError 로 감싸면 사라지는 실제 예외를 콘솔에 남긴다.
+    console.error(`[api] ${method} ${path} 요청 실패`, e);
     throw new ApiError("NETWORK", "서버에 연결할 수 없습니다.", 0);
   } finally {
     if (timer) clearTimeout(timer);
