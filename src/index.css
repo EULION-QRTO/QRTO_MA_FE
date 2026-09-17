@@ -1515,6 +1515,39 @@ button {
   color: var(--color-state-warning);
 }
 
+/* 서버 헬스체크 카드 (개요 탭 최상단) */
+.op-health {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border-radius: var(--radius-chip);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+  border: 1px solid transparent;
+  margin-bottom: var(--space-md);
+}
+.op-health--down {
+  border-color: var(--color-state-new-order);
+}
+.op-health__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.op-health__hint {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+.op-health__stats {
+  display: flex;
+  gap: var(--space-lg);
+}
+.op-health .op__updated {
+  margin-left: auto;
+}
+
 .op__add {
   display: flex;
   gap: var(--space-sm);

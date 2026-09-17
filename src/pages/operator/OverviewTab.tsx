@@ -2,8 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { formatKRW } from "@/lib/types";
 import { useStores } from "@/pages/operator/stores";
 import { fetchSnapshot, type StoreSnapshot } from "./storeSnapshot";
+import { healthApi } from "@/lib/endpoints";
+import { ApiError } from "@/lib/api";
+import { parseServerTime } from "@/lib/mappers";
 
 const REFRESH_MS = 15000;
+/** 서버 헬스체크(GET /api/health) 갱신 주기. 매장 스냅샷과는 독립적으로 돈다. */
+const HEALTH_REFRESH_MS = 30000;
+
+type HealthState =
+  | { kind: "checking" }
+  | { kind: "up"; service: string; serverTime: string; latencyMs: number; checkedAt: string }
+  | { kind: "down"; error: string; checkedAt: string };
 
 export default function OverviewTab() {
   const { stores, error: listError } = useStores();
@@ -12,6 +22,9 @@ export default function OverviewTab() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [health, setHealth] = useState<HealthState>({ kind: "checking" });
+  const healthTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
     const storeIds = idsKey ? idsKey.split(",") : [];
@@ -26,6 +39,28 @@ export default function OverviewTab() {
     setLoading(false);
   }, [idsKey]);
 
+  /** GET /api/health — 매장 구분 없는 서버 전체 liveness 체크. 왕복 지연시간을 함께 잰다. */
+  const checkHealth = useCallback(async () => {
+    const startedAt = performance.now();
+    const checkedAt = new Date().toLocaleTimeString("ko-KR", { hour12: false });
+    try {
+      const res = await healthApi.check();
+      setHealth({
+        kind: "up",
+        service: res.service,
+        serverTime: res.time,
+        latencyMs: Math.round(performance.now() - startedAt),
+        checkedAt,
+      });
+    } catch (e) {
+      setHealth({
+        kind: "down",
+        error: e instanceof ApiError ? `${e.code} · ${e.message}` : "서버에 연결할 수 없습니다.",
+        checkedAt,
+      });
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
     if (timerRef.current) clearInterval(timerRef.current);
@@ -34,6 +69,15 @@ export default function OverviewTab() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    void checkHealth();
+    if (healthTimerRef.current) clearInterval(healthTimerRef.current);
+    healthTimerRef.current = setInterval(() => void checkHealth(), HEALTH_REFRESH_MS);
+    return () => {
+      if (healthTimerRef.current) clearInterval(healthTimerRef.current);
+    };
+  }, [checkHealth]);
 
   const list = stores.map((st) => snapshots[st.id]).filter(Boolean) as StoreSnapshot[];
   const onlineList = list.filter((s) => s.online);
@@ -54,6 +98,56 @@ export default function OverviewTab() {
       </div>
 
       {listError && <p className="op-card__error">⚠️ {listError}</p>}
+
+      {/*
+       * 서버 헬스체크(GET /api/health) — 매장별 상태가 아니라 API 서버 전체가
+       * 응답하는지만 보는 전역 liveness 체크다. 매장 카드의 온라인/오프라인
+       * 배지와는 별개(그건 매장별 API 호출 성공 여부로 판단)이니 혼동하지 않게
+       * 분리된 카드로 둔다.
+       */}
+      <section className={`op-health${health.kind === "down" ? " op-health--down" : ""}`}>
+        <div className="op-health__status">
+          {health.kind === "checking" ? (
+            <span className="op__badge">확인 중…</span>
+          ) : health.kind === "up" ? (
+            <span className="op__badge op__badge--on">API 서버 정상</span>
+          ) : (
+            <span className="op__badge op__badge--off">API 서버 응답 없음</span>
+          )}
+          <span className="op-health__hint">
+            매장 구분 없는 서버 전체 상태(GET /api/health)입니다 — 매장별 상태는 아래 카드를 보세요.
+          </span>
+        </div>
+
+        {health.kind === "up" && (
+          <div className="op-health__stats">
+            <div>
+              <span className="op-card__stat-label">지연시간</span>
+              <span className="op-card__stat-value">{health.latencyMs}ms</span>
+            </div>
+            <div>
+              <span className="op-card__stat-label">서버 시각</span>
+              <span className="op-card__stat-value">
+                {new Date(parseServerTime(health.serverTime)).toLocaleTimeString("ko-KR", {
+                  hour12: false,
+                })}
+              </span>
+            </div>
+            <div>
+              <span className="op-card__stat-label">서비스</span>
+              <span className="op-card__stat-value">{health.service}</span>
+            </div>
+          </div>
+        )}
+        {health.kind === "down" && <p className="op-card__error">⚠️ {health.error}</p>}
+
+        <span className="op__updated">
+          {health.kind !== "checking" ? `확인 ${health.checkedAt}` : ""}
+        </span>
+        <button className="btn btn--sm" onClick={() => void checkHealth()}>
+          새로고침
+        </button>
+      </section>
 
       <section className="op__kpis">
         <div className="op__kpi">
