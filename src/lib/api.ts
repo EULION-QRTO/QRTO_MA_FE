@@ -21,6 +21,12 @@ export class ApiError extends Error {
   }
 }
 
+/** 모든 실패를 이 함수로만 던진다 — 콘솔에 "몇 번(코드) 무슨 사유"가 항상 남는다. */
+function fail(method: string, path: string, status: number, code: string, message: string): never {
+  console.error(`[api] ${method} ${path} → ${status} ${code} · ${message}`);
+  throw new ApiError(code, message, status);
+}
+
 interface RequestOptions {
   /** 쿼리 파라미터 (undefined 값은 생략) */
   query?: Record<string, string | number | boolean | undefined>;
@@ -91,12 +97,15 @@ async function request<T>(
     });
   } catch (e) {
     if ((e as Error).name === "AbortError") {
-      if (timedOut) throw new ApiError("TIMEOUT", "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.", 0);
+      if (timedOut) {
+        return fail(method, path, 0, "TIMEOUT", "서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.");
+      }
       throw e; // 외부에서 취소한 경우
     }
-    // 원인 파악용 — ApiError 로 감싸면 사라지는 실제 예외를 콘솔에 남긴다.
-    console.error(`[api] ${method} ${path} 요청 실패`, e);
-    throw new ApiError("NETWORK", "서버에 연결할 수 없습니다.", 0);
+    // fetch() 자체가 실패한 경우(CORS 차단·네트워크 단절·WebKit 버그 등) —
+    // ApiError 로 감싸면 사라지는 실제 예외(이름/메시지)를 그대로 남긴다.
+    console.error(`[api] ${method} ${path} → fetch 실패:`, e);
+    return fail(method, path, 0, "NETWORK", "서버에 연결할 수 없습니다.");
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -109,10 +118,12 @@ async function request<T>(
   // 응답 파싱 (envelope 우선, 아니면 raw)
   const text = await res.text();
   let json: ApiEnvelope<T> | T | null = null;
+  let parseError: unknown = null;
   if (text) {
     try {
       json = JSON.parse(text) as ApiEnvelope<T> | T;
-    } catch {
+    } catch (e) {
+      parseError = e;
       json = null;
     }
   }
@@ -120,14 +131,21 @@ async function request<T>(
   if (!res.ok) {
     const env = json as ApiEnvelope<T> | null;
     const err = env?.error;
-    throw new ApiError(err?.code ?? String(res.status), err?.message ?? res.statusText, res.status);
+    // 서버가 envelope 형태로 에러를 안 줬을 때(예: 프록시/CDN 이 가로챈 HTML
+    // 에러 페이지) 원인을 알 수 있도록 응답 본문을 그대로 남긴다.
+    if (!err) console.error(`[api] ${method} ${path} → ${res.status} 응답 본문:`, text.slice(0, 500));
+    return fail(method, path, res.status, err?.code ?? String(res.status), err?.message ?? res.statusText);
+  }
+
+  if (parseError) {
+    console.error(`[api] ${method} ${path} → 200 이지만 JSON 파싱 실패, 응답 본문:`, text.slice(0, 500));
   }
 
   // envelope 형태면 data 를, 아니면 그대로 반환
   if (json && typeof json === "object" && "success" in json) {
     const env = json as ApiEnvelope<T>;
     if (env.success === false) {
-      throw new ApiError(env.error?.code ?? "UNKNOWN", env.error?.message ?? "요청 실패", res.status);
+      return fail(method, path, res.status, env.error?.code ?? "UNKNOWN", env.error?.message ?? "요청 실패");
     }
     return env.data as T;
   }
@@ -140,10 +158,16 @@ export async function fetchImageObjectUrl(
   query?: RequestOptions["query"],
 ): Promise<string> {
   const token = getToken();
-  const res = await fetch(buildUrl(path, query), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new ApiError(String(res.status), "이미지 요청 실패", res.status);
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path, query), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch (e) {
+    console.error(`[api] GET ${path} → fetch 실패:`, e);
+    return fail("GET", path, 0, "NETWORK", "서버에 연결할 수 없습니다.");
+  }
+  if (!res.ok) return fail("GET", path, res.status, String(res.status), "이미지 요청 실패");
   const blob = await res.blob();
   return URL.createObjectURL(blob);
 }
@@ -157,11 +181,17 @@ export async function fetchFile(
   opts: { query?: RequestOptions["query"]; fallbackName?: string } = {},
 ): Promise<{ blob: Blob; filename: string }> {
   const token = getToken();
-  const res = await fetch(buildUrl(path, opts.query), {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  let res: Response;
+  try {
+    res = await fetch(buildUrl(path, opts.query), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch (e) {
+    console.error(`[api] GET ${path} → fetch 실패:`, e);
+    return fail("GET", path, 0, "NETWORK", "서버에 연결할 수 없습니다.");
+  }
   if (res.status === 401) clearSession();
-  if (!res.ok) throw new ApiError(String(res.status), "파일 요청 실패", res.status);
+  if (!res.ok) return fail("GET", path, res.status, String(res.status), "파일 요청 실패");
   const cd = res.headers.get("Content-Disposition") ?? "";
   const star = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
   const plain = cd.match(/filename="?([^";]+)"?/i);
