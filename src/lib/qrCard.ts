@@ -220,14 +220,17 @@ export async function renderTableCard(input: TableCardInput, scale = 4): Promise
   ctx.imageSmoothingEnabled = true;
 
   // 2.5) Lpay 로고 교체 — 베이크된 옛 워드마크 자리를 지우고 새 로고를 흰색으로 그린다.
-  //      실제 그림 영역(bbox)만 잘라 원본 비율대로, 옛 워드마크와 같은 높이·왼쪽 정렬로 배치.
+  //      실제 그림 영역(bbox)만 잘라 원본 비율대로 그리되, 옛 워드마크보다 30% 키워서
+  //      왼쪽 x·세로 중심은 유지한 채(위아래로 고르게 커지도록) 배치한다.
   const lc = TPL.logoCover;
   ctx.fillStyle = TPL.orange;
   ctx.fillRect(lc.x - 4, lc.y - 4, lc.w + 8, lc.h + 8);
+  const LOGO_SCALE_UP = 1.3;
   const logoAspect = logo.sw / logo.sh;
-  const logoH = lc.h;
+  const logoH = lc.h * LOGO_SCALE_UP;
   const logoW = logoH * logoAspect;
-  ctx.drawImage(logo.canvas, logo.sx, logo.sy, logo.sw, logo.sh, lc.x, lc.y, logoW, logoH);
+  const logoY = lc.y + lc.h / 2 - logoH / 2;
+  ctx.drawImage(logo.canvas, logo.sx, logo.sy, logo.sw, logo.sh, lc.x, logoY, logoW, logoH);
 
   // 3) 텍스트 교체
   const t = TPL.text;
