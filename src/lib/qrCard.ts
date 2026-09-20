@@ -4,11 +4,14 @@
  * 템플릿(561×747, #FF6000 라운드 카드)에서 자동으로 바뀌는 부분:
  *  - QR 영역: 서버가 준 매장/테이블별 QR 로 교체 (흰 모듈, transparent PNG)
  *  - 우측 하단 "{주점이름} T{번호}" 텍스트: 주점 이름 40px + 테이블 라벨 64px (SUITE ExtraBold)
- * 나머지(Lpay 워드마크, 멋사대학, 배경/테두리)는 템플릿 그대로 둔다.
+ *  - 좌측 하단 Lpay 워드마크: 새 로고(lpay_new_logo.svg)로 교체 — 카드 배경이 주황 단색이라
+ *    원본 색(주황+검정)이 아니라 흰색 실루엣으로 다시 칠해서 그린다(getWhiteLogo).
+ * 나머지(멋사대학, 배경/테두리)는 템플릿 그대로 둔다.
  *
- * 좌표는 템플릿 SVG 를 눈금자로 실측한 값(SVG 유닛 = 561×747 기준).
+ * 좌표는 템플릿 PNG 를 픽셀 스캔으로 실측한 값(스케일 4× → ÷4 한 SVG 유닛 = 561×747 기준).
  */
 import templateSrc from "@/assets/TableQR.png";
+import logoSrc from "@/assets/lpay_new_logo.svg";
 
 const TPL = {
   w: 561,
@@ -34,6 +37,8 @@ const TPL = {
     /** 베이크된 "멋사포차 T2"(x 285~505, y 553~604) 를 가리는 사각형 */
     cover: { x: 272, y: 544, w: 246, h: 70 },
   },
+  /** 베이크된 "Lpay" 워드마크 실측 bbox(x:51~138.5, y:553~595.25) — 이 영역을 지우고 새 로고를 그린다 */
+  logoCover: { x: 51, y: 553, w: 87.5, h: 42.25 },
 };
 
 export interface TableCardInput {
@@ -55,6 +60,68 @@ function loadImg(src: string): Promise<HTMLImageElement> {
 }
 
 let templateImgP: Promise<HTMLImageElement> | null = null;
+let whiteLogoP: Promise<{ canvas: HTMLCanvasElement; sx: number; sy: number; sw: number; sh: number }> | null =
+  null;
+
+/**
+ * 이미지의 불투명 픽셀 tight bounding box (정사각으로 맞추지 않음).
+ * 로고 SVG 는 viewBox 에 여백이 있는 경우가 많아, 실제 그림 부분만 잘라내야
+ * 목표 크기에 꽉 차게 배치할 수 있다.
+ */
+function contentBbox(img: HTMLImageElement): { sx: number; sy: number; sw: number; sh: number } {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  const off = document.createElement("canvas");
+  off.width = w;
+  off.height = h;
+  const octx = off.getContext("2d", { willReadFrequently: true });
+  if (!octx) return { sx: 0, sy: 0, sw: w, sh: h };
+  octx.drawImage(img, 0, 0);
+  let data: Uint8ClampedArray;
+  try {
+    data = octx.getImageData(0, 0, w, h).data;
+  } catch {
+    return { sx: 0, sy: 0, sw: w, sh: h };
+  }
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 16) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return { sx: 0, sy: 0, sw: w, sh: h }; // 전부 투명 → 통짜 사용
+  return { sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 };
+}
+
+/**
+ * 로고를 알파(모양)만 남기고 단색으로 다시 칠하고, 실제 그림 영역의 bbox 를 함께 반환한다.
+ * source-in 컴포지팅 — 원본 색(주황/검정 등)과 무관하게 실루엣만 취해 칠하므로, 원본 SVG 를
+ * 손대지 않고도 어두운/단색 배경용 흰 로고를 얻을 수 있다. 로드·계산은 한 번만 하고 캐싱한다
+ * (카드 여러 장을 찍을 때마다 다시 계산하지 않도록).
+ */
+function getWhiteLogo() {
+  return (whiteLogoP ??= (async () => {
+    const img = await loadImg(logoSrc);
+    const { sx, sy, sw, sh } = contentBbox(img);
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth || img.width;
+    c.height = img.naturalHeight || img.height;
+    const cctx = c.getContext("2d")!;
+    cctx.drawImage(img, 0, 0);
+    cctx.globalCompositeOperation = "source-in";
+    cctx.fillStyle = TPL.ink;
+    cctx.fillRect(0, 0, c.width, c.height);
+    return { canvas: c, sx, sy, sw, sh };
+  })());
+}
 
 /**
  * 서버 QR 이미지에서 실제 코드 영역(불투명 픽셀)의 정사각 bbox 를 찾는다.
@@ -122,9 +189,10 @@ async function ensureFont(): Promise<void> {
  * @param scale 출력 배율 (기본 4 → 2244×2988, 제공된 PNG 와 동일 해상도)
  */
 export async function renderTableCard(input: TableCardInput, scale = 4): Promise<Blob> {
-  const [tpl, qr] = await Promise.all([
+  const [tpl, qr, logo] = await Promise.all([
     (templateImgP ??= loadImg(templateSrc)),
     loadImg(input.qrUrl),
+    getWhiteLogo(),
     ensureFont(),
   ]);
 
@@ -150,6 +218,16 @@ export async function renderTableCard(input: TableCardInput, scale = 4): Promise
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(qr, box.sx, box.sy, box.s, box.s, dX, dY, dSize, dSize);
   ctx.imageSmoothingEnabled = true;
+
+  // 2.5) Lpay 로고 교체 — 베이크된 옛 워드마크 자리를 지우고 새 로고를 흰색으로 그린다.
+  //      실제 그림 영역(bbox)만 잘라 원본 비율대로, 옛 워드마크와 같은 높이·왼쪽 정렬로 배치.
+  const lc = TPL.logoCover;
+  ctx.fillStyle = TPL.orange;
+  ctx.fillRect(lc.x - 4, lc.y - 4, lc.w + 8, lc.h + 8);
+  const logoAspect = logo.sw / logo.sh;
+  const logoH = lc.h;
+  const logoW = logoH * logoAspect;
+  ctx.drawImage(logo.canvas, logo.sx, logo.sy, logo.sw, logo.sh, lc.x, lc.y, logoW, logoH);
 
   // 3) 텍스트 교체
   const t = TPL.text;

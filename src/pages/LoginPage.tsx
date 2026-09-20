@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { login } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
-import logoUrl from "@/assets/lapy_logo.svg";
+import logoUrl from "@/assets/lpay_new_logo.svg";
 
 export default function LoginPage() {
   const navigate = useNavigate();

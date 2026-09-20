@@ -1,5 +1,5 @@
 import { formatKRW } from "@/lib/types";
-import logoUrl from "@/assets/lapy_logo.svg";
+import logoUrl from "@/assets/lpay_new_logo.svg";
 import { IconDot, IconRefresh } from "@/components/icons";
 
 export type MainTab = "tables" | "admin";
