@@ -92,4 +92,6 @@ export interface WaitingOrder {
 export const orderTotal = (items: OrderItem[]): number =>
   items.reduce((sum, it) => sum + it.price * it.qty, 0);
 
-export const formatKRW = (n: number): string => `${n.toLocaleString("ko-KR")}원`;
+/** null/undefined 이 와도(응답에 필드가 없거나 집계 대상이 없을 때) 죽지 않고 0원으로 표시 */
+export const formatKRW = (n: number | null | undefined): string =>
+  `${(n ?? 0).toLocaleString("ko-KR")}원`;
