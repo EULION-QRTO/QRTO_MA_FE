@@ -402,6 +402,28 @@ button {
   font: var(--font-caption);
 }
 
+/* ErrorBoundary 폴백 화면 — 렌더링 중 예상 못한 에러로 앱 전체가 멈췄을 때 */
+.app-crash {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  text-align: center;
+  background: var(--color-bg);
+}
+.app-crash__title {
+  font: var(--font-title);
+}
+.app-crash__msg {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+  max-width: 480px;
+}
+
 /*
  * 테이블 그리드 — 최소 32테이블(이상) · 11" 아이패드 가로 기준 고밀도 배치.
  * auto-fill + 작은 최소폭으로 가로에서 6~7열, 세로에서 4열이 자동으로 잡힌다.

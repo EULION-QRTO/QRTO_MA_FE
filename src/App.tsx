@@ -3,6 +3,7 @@ import PosApp from "@/components/PosApp";
 import LoginPage from "@/pages/LoginPage";
 import OperatorLoginPage from "@/pages/OperatorLoginPage";
 import OperatorDashboard from "@/pages/OperatorDashboard";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { getSession } from "@/lib/auth";
 
 /** 진입점: 세션 역할에 따라 POS / 운영자 대시보드로, 없으면 로그인으로. */
@@ -41,15 +42,17 @@ function OperatorRoute() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/store/:storeId" element={<StoreRoute />} />
-        <Route path="/operator/login" element={<OperatorLoginPage />} />
-        <Route path="/operator" element={<OperatorRoute />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/store/:storeId" element={<StoreRoute />} />
+          <Route path="/operator/login" element={<OperatorLoginPage />} />
+          <Route path="/operator" element={<OperatorRoute />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
