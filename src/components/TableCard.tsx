@@ -17,12 +17,12 @@ export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Pr
 
   /**
    * 카드 탭 동작:
-   * - 직원 호출 중이면 → 호출 해제 (주문 상세 모달은 열지 않음)
-   * - 호출이 없으면 → 사용중 테이블은 주문 상세 열기
+   * - 직원 호출 중이면 → 호출 해제 (상세 탭은 열지 않음)
+   * - 호출이 없으면 → 항상 상세 탭 열기 (빈 테이블도 현금·계좌이체 주문을 받을 수 있어야 함)
    */
   const handleTap = () => {
     if (calling) onResolveStaffCall?.(table.id);
-    else if (table.order) onOpen(table);
+    else onOpen(table);
   };
 
   const callBadge = calling ? (
@@ -33,23 +33,18 @@ export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Pr
 
   // ── 빈 테이블 ──
   if (!table.order) {
-    if (calling) {
-      return (
-        <button
-          type="button"
-          className="table-card table-card--empty table-card--calling"
-          onClick={handleTap}
-          aria-label={`${table.number}번 테이블 직원 호출 — 탭하여 해제`}
-        >
-          {callBadge}
-          <span className="table-card__num">{table.number}</span>
-        </button>
-      );
-    }
     return (
-      <div className="table-card table-card--empty" aria-label={`${table.number}번 빈 테이블`}>
+      <button
+        type="button"
+        className={`table-card table-card--empty${calling ? " table-card--calling" : ""}`}
+        onClick={handleTap}
+        aria-label={
+          calling ? `${table.number}번 테이블 직원 호출 — 탭하여 해제` : `${table.number}번 빈 테이블`
+        }
+      >
+        {callBadge}
         <span className="table-card__num">{table.number}</span>
-      </div>
+      </button>
     );
   }
 

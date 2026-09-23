@@ -28,7 +28,7 @@ import Header, { MainTab } from "@/components/Header";
 import { IconDot } from "@/components/icons";
 import TableCard from "@/components/TableCard";
 import Sidebar from "@/components/Sidebar";
-import OrderDetailModal from "@/components/OrderDetailModal";
+import TableDetailModal from "@/components/TableDetailModal";
 import AdminPanel from "@/components/AdminPanel";
 import {
   Table,
@@ -453,8 +453,10 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
       )}
 
       {selected && (
-        <OrderDetailModal
+        <TableDetailModal
           table={selected}
+          menu={menu}
+          account={account}
           onClose={() => setSelected(null)}
           onClear={clearTable}
         />
