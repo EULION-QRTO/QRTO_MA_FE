@@ -73,6 +73,9 @@ export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Pr
         {!isWarning && !calling && <span className="table-card__time">{clock(startedAt)}</span>}
       </div>
       <p className="table-card__preview">{preview}</p>
+      {table.unpaidTotal > 0 && (
+        <span className="table-card__unpaid">미결제 {formatKRW(table.unpaidTotal)}</span>
+      )}
       <span className="table-card__total">{formatKRW(orderTotal(items))}</span>
     </button>
   );

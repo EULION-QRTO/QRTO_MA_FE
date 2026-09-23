@@ -28,6 +28,11 @@ const toRows = (s: SalesSummaryResponse): (string | number)[][] => [
   ["포장 주문 건수", s.takeoutOrderCount],
   ["평균 객단가", s.avgOrderPrice],
   ["취소 건수", s.canceledCount],
+  ["간편결제(PayApp)", s.salesByMethod.PAYAPP],
+  ["현금 결제", s.salesByMethod.CASH],
+  ["계좌이체 결제", s.salesByMethod.TRANSFER],
+  ["무료(0원)", s.salesByMethod.FREE],
+  ["미결제(후불)", s.salesByMethod.UNPAID],
 ];
 
 /** 브라우저 다운로드 트리거 */
@@ -195,6 +200,22 @@ export default function SalesSummaryCard() {
             <div className="admin__stat">
               <div className="admin__stat-label">취소 건수</div>
               <div className="admin__stat-value">{summary.canceledCount.toLocaleString("ko-KR")}건</div>
+            </div>
+            <div className="admin__stat">
+              <div className="admin__stat-label">현금 결제</div>
+              <div className="admin__stat-value">{formatKRW(summary.salesByMethod.CASH)}</div>
+            </div>
+            <div className="admin__stat">
+              <div className="admin__stat-label">계좌이체 결제</div>
+              <div className="admin__stat-value">{formatKRW(summary.salesByMethod.TRANSFER)}</div>
+            </div>
+            <div className="admin__stat">
+              <div className="admin__stat-label">미결제(후불)</div>
+              <div
+                className={`admin__stat-value${summary.salesByMethod.UNPAID > 0 ? " admin__stat-value--warn" : ""}`}
+              >
+                {formatKRW(summary.salesByMethod.UNPAID)}
+              </div>
             </div>
           </div>
 

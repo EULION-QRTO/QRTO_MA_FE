@@ -25,6 +25,7 @@ export default function WaitingOrderCard({ order, now, onSetStage, onCancel }: P
   const mins = elapsedMin(order.createdAt, now);
   const isWarning = mins >= WARNING_MIN;
   const stages = STAGES_BY_TYPE[order.type];
+  const currentIndex = stages.indexOf(order.stage);
 
   const timeLabel = agoLabel(order.createdAt, now);
 
@@ -95,8 +96,10 @@ export default function WaitingOrderCard({ order, now, onSetStage, onCancel }: P
             onChange={(e) => onSetStage(order.id, e.target.value as WaitStage)}
             aria-label="주문 상태 변경"
           >
-            {stages.map((s) => (
-              <option key={s} value={s}>
+            {stages.map((s, i) => (
+              // 서버는 이제 앞뒤 어느 방향으로든 상태 전이를 허용하지만(되돌리기 포함),
+              // 실수로 여러 단계를 한 번에 건너뛰지 않도록 화면에서는 바로 옆 단계로만 이동시킨다.
+              <option key={s} value={s} disabled={Math.abs(i - currentIndex) > 1}>
                 {STAGE_LABEL[s]}
               </option>
             ))}

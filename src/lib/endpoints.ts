@@ -31,6 +31,10 @@ import type {
   OrderType,
   StaffCallResponse,
   SalesSummaryResponse,
+  PosOrderCreateRequest,
+  CounterPaymentRequest,
+  PaymentResponse,
+  TableOrdersResponse,
 } from "./dto";
 
 type OrderFilter = { status?: OrderStatus; type?: OrderType };
@@ -145,6 +149,29 @@ export const tableApi = {
   /** 매장 픽업 QR PNG object URL */
   pickupQrImageUrl: (opts?: QrImageOpts) =>
     fetchImageObjectUrl("/api/pos/pickup-qr-image", posQuery(qrImageQuery(opts))),
+  /**
+   * GET /api/pos/tables/{tableId}/orders — 테이블 터치 시 보여줄 주문 묶음.
+   * 진행중(RECEIVED·PREPARING·COOKED) + 결제대기(PENDING_PAYMENT) + 미결제 종료(후불
+   * 서빙완료) 전부, 취소 제외, 오래된 순. unpaidTotal 이 카운터에서 받을 금액. (2026-09-24 추가)
+   */
+  orders: (tableId: number) =>
+    http.get<TableOrdersResponse>(`/api/pos/tables/${tableId}/orders`, { query: posQuery() }),
+  /**
+   * POST /api/pos/tables/{tableId}/orders — 포스 직접 주문(카운터 현금·계좌이체용).
+   * 결제 없이 즉시 RECEIVED(후불), source:"POS", paid:false 로 생성된다. 1~50개, menuId 중복 불가.
+   * (2026-09-24 추가)
+   */
+  createOrder: (tableId: number, req: PosOrderCreateRequest) =>
+    http.post<OrderResponse>(`/api/pos/tables/${tableId}/orders`, { query: posQuery(), body: req }),
+  /**
+   * POST /api/pos/tables/{tableId}/payment — 테이블 계산(미결제 주문 전부를 한 번에).
+   * 미결제가 없으면 200 []. (2026-09-24 추가)
+   * ⚠️ 그 테이블의 미결제 주문 전부(손님이 페이앱 결제창을 열어둔 채 아직 안 낸
+   * PENDING_PAYMENT 주문 포함)를 한 번에 이 결제수단으로 처리한다 — 방금 만든 주문
+   * "하나만" 정산하고 싶을 땐 이걸 쓰지 말고 orderApi.payment(orderId, ...) 를 써라.
+   */
+  payment: (tableId: number, req: CounterPaymentRequest) =>
+    http.post<PaymentResponse[]>(`/api/pos/tables/${tableId}/payment`, { query: posQuery(), body: req }),
 };
 
 /* ── 포스 메인: 테이블 현황 ── */
@@ -160,13 +187,22 @@ export const orderApi = {
     http.get<OrderResponse[]>("/api/pos/orders", { query: posQuery({ ...filter }) }),
   /**
    * PATCH /api/pos/orders/{orderId}/status
-   * 허용 전이: RECEIVED→PREPARING→COOKED→SERVED(DINE_IN)/PICKED_UP(TAKEOUT), 각 단계에서 CANCELED.
+   * 2026-09-24: RECEIVED·PREPARING·COOKED·SERVED(DINE_IN)/PICKED_UP(TAKEOUT) 사이는
+   * 어느 방향이든 이동 가능(되돌리기 포함) — 프론트에서 한 단계씩만 이동하도록 제한한다.
+   * 어디서든 CANCELED 가능. 여전히 불가(400 O007): 결제대기로/에서 이동, 취소 되살리기, 같은 상태 재요청.
    * SERVED 는 이 API 로 보내지 않는다 — 테이블 청산(tableApi.clear) 전용.
-   * 결제된 주문을 CANCELED 로 바꾸면 서버가 페이앱 환불을 먼저 시도하고, 실패 시 400 P004
-   * (주문은 그대로 유지) — ApiError.message 를 그대로 보여주면 된다.
+   * 결제된 주문을 CANCELED 로 바꾸면 서버가 환불을 먼저 시도하고(페이앱은 취소 API, 현금·계좌이체는
+   * 장부만 취소), 실패 시 400 P004(주문은 그대로 유지) — ApiError.message 를 그대로 보여주면 된다.
    */
   setStatus: (orderId: number, status: OrderStatus) =>
     http.patch<OrderResponse>(`/api/pos/orders/${orderId}/status`, { query: posQuery(), body: { status } }),
+  /**
+   * POST /api/pos/orders/{orderId}/payment — 카운터 결제 확인(주문 단위).
+   * 대상은 미결제 주문(손님 QR 결제대기 주문 포함), 부분 결제 없음(전액). 결제대기였으면 RECEIVED 로
+   * 전환, 이미 접수된 주문이면 결제 표시만 바뀐다. (2026-09-24 추가)
+   */
+  payment: (orderId: number, req: CounterPaymentRequest) =>
+    http.post<PaymentResponse>(`/api/pos/orders/${orderId}/payment`, { query: posQuery(), body: req }),
 };
 
 /* ── 직원 호출 ── */
@@ -239,6 +275,9 @@ export const adminApi = {
         `/api/admin/stores/${storeId}/tables/${tableId}/qr-image`,
         qrImageQuery(opts),
       ),
+    /** GET /api/admin/stores/{storeId}/tables/{tableId}/orders — 포스 orders 미러 (2026-09-24 추가) */
+    orders: (storeId: string | number, tableId: number) =>
+      http.get<TableOrdersResponse>(`/api/admin/stores/${storeId}/tables/${tableId}/orders`),
   },
   pickupQrImageUrl: (storeId: string | number, opts?: QrImageOpts) =>
     fetchImageObjectUrl(`/api/admin/stores/${storeId}/pickup-qr-image`, qrImageQuery(opts)),

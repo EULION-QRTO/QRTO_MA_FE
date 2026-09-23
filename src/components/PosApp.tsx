@@ -61,7 +61,10 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
   const [sales, setSales] = useState<SalesSummaryResponse | null>(null);
   const [storeOpen, setStoreOpen] = useState<boolean>(true);
 
-  const [selected, setSelected] = useState<Table | null>(null);
+  // 선택한 테이블은 id 만 들고, 실제 Table 은 매번 tables 에서 찾는다.
+  // (스냅샷을 들고 있으면 상세 탭에서 주문 접수/결제 후 reload 해도 헤더 쪽 정보가 갱신 안 됨)
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selected = selectedId != null ? (tables.find((t) => t.id === selectedId) ?? null) : null;
   const [now, setNow] = useState<number>(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
@@ -194,7 +197,9 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
   /**
    * 주문 상태 변경 (PATCH .../orders/{id}/status)
    * 드롭다운에서 고른 단계를 그대로(최종 값) 서버에 전달한다.
-   * 앞으로 건너뛰기도, 실수 정정을 위한 되돌리기(예: 조리완료 → 조리중)도 모두 가능.
+   * 서버는 2026-09-24 부터 어느 방향이든 자유 전이를 허용하지만(되돌리기 포함),
+   * WaitingOrderCard 의 드롭다운이 바로 옆 단계만 선택 가능하게 막아 실수로
+   * 여러 단계를 한 번에 건너뛰지 않게 한다(한 단계씩만).
    */
   const setStage = async (id: string, stage: WaitStage) => {
     try {
@@ -425,7 +430,7 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
                     key={t.id}
                     table={t}
                     now={now}
-                    onOpen={setSelected}
+                    onOpen={(t) => setSelectedId(t.id)}
                     onResolveStaffCall={resolveStaffCall}
                   />
                 ))}
@@ -457,8 +462,12 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
           table={selected}
           menu={menu}
           account={account}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedId(null)}
           onClear={clearTable}
+          onChanged={() => {
+            void reloadTablesAndOrders();
+            void reloadSales();
+          }}
         />
       )}
     </div>
