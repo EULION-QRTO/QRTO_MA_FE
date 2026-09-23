@@ -44,6 +44,7 @@ export function toTable(ts: TableStatusResponse): Table {
     id: ts.tableId,
     number: tableNumberFromName(ts.name, ts.tableId),
     staffCallActive: ts.staffCallActive,
+    unpaidTotal: ts.unpaidTotal,
     order: ts.occupied
       ? {
           items: ts.itemSummary.map((s) => ({

@@ -195,6 +195,8 @@ export interface TableStatusResponse {
   itemSummary: TableStatusItemSummary[];
   orderIds: number[];
   staffCallActive: boolean;
+  /** 그 테이블 진행중 주문 중 미결제 금액(카운터에서 받을 금액) — 2026-09-24 추가 */
+  unpaidTotal: number;
 }
 
 /** POST /api/pos/tables/{tableId}/clear */
@@ -226,6 +228,11 @@ export interface OrderItemResponse {
   lineTotal: number;
 }
 
+/** 주문 경로 — 손님 QR 주문 / 포스 직접 주문(카운터) */
+export type OrderSource = "CUSTOMER" | "POS";
+/** 결제 수단. 미결제 주문은 null */
+export type PaymentMethod = "PAYAPP" | "CASH" | "TRANSFER" | "FREE";
+
 export interface OrderResponse {
   id: number;
   storeId: number;
@@ -241,6 +248,53 @@ export interface OrderResponse {
   totalPrice: number;
   items: OrderItemResponse[];
   createdAt: string;
+  /** 손님 QR 주문 / 포스 직접 주문(카운터) — 2026-09-24 추가 */
+  source: OrderSource;
+  /** 결제 완료 여부. 포스 주문은 접수돼도 결제 전엔 false — 2026-09-24 추가 */
+  paid: boolean;
+  /** 미결제면 null — 2026-09-24 추가 */
+  paymentMethod: PaymentMethod | null;
+  /** 결제 확정 시각, 미결제면 null — 2026-09-24 추가 */
+  paidAt: string | null;
+}
+
+/* ── 카운터 결제(현금·계좌이체) — 2026-09-24 추가 ── */
+
+/** POST /api/pos/tables/{tableId}/orders — 포스 직접 주문 */
+export interface PosOrderCreateRequest {
+  /** 1~50, menuId 중복 불가 */
+  items: { menuId: number; quantity: number }[];
+}
+
+/** POST /api/pos/orders/{orderId}/payment · POST /api/pos/tables/{tableId}/payment 요청 */
+export interface CounterPaymentRequest {
+  method: "CASH" | "TRANSFER";
+}
+
+/** 카운터 결제 확인 응답 */
+export interface PaymentResponse {
+  paymentId: number;
+  orderId: number;
+  amount: number;
+  /** 명세서 확인된 값은 "PAID" 뿐 — 그 외는 원문 그대로 통과 */
+  status: "PAID" | string;
+  method: PaymentMethod;
+  payType: string | null;
+  payUrl: string | null;
+  approvedAt: string;
+  order: OrderResponse;
+}
+
+/** GET /api/pos/tables/{tableId}/orders · GET /api/admin/stores/{storeId}/tables/{tableId}/orders */
+export interface TableOrdersResponse {
+  tableId: number;
+  name: string;
+  /** 진행중 + 결제대기 + 미결제 종료(후불 서빙완료) — 취소 제외, 오래된 순 */
+  orders: OrderResponse[];
+  /** 카운터에서 받을 금액 */
+  unpaidTotal: number;
+  paidTotal: number;
+  unpaidOrderIds: number[];
 }
 
 /* ── 직원 호출 ── */
@@ -255,6 +309,15 @@ export interface StaffCallResponse {
 }
 
 /* ── 매출 ── */
+/** 결제수단별 매출 합산. UNPAID 는 아직 못 받은 후불(카운터 미결제) 금액 — 마감 때 0이어야 함 */
+export interface SalesByMethod {
+  PAYAPP: number;
+  CASH: number;
+  TRANSFER: number;
+  FREE: number;
+  UNPAID: number;
+}
+
 export interface SalesSummaryResponse {
   date: string;
   dineInSales: number;
@@ -267,6 +330,8 @@ export interface SalesSummaryResponse {
   canceledCount: number;
   /** 축제 누적 매출 */
   cumulativeSales: number;
+  /** 결제수단별 합산 — 2026-09-24 추가 */
+  salesByMethod: SalesByMethod;
 }
 
 /* ── 실시간(STOMP) 이벤트 ── */

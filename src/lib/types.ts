@@ -46,6 +46,8 @@ export interface Table {
   order: TableOrder | null;
   /** 직원 호출 진행중 여부 (table-status 기준) */
   staffCallActive?: boolean;
+  /** 진행중 주문 중 미결제(카운터에서 받을) 금액. 0이면 미결제 없음 */
+  unpaidTotal: number;
 }
 
 export type WaitStage = "received" | "preparing" | "cooked" | "picked-up";
