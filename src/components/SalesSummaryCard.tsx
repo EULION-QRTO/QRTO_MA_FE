@@ -22,6 +22,9 @@ const todaySeoul = (): string =>
 const EMPTY_SALES_BY_METHOD: SalesByMethod = { PAYAPP: 0, CASH: 0, TRANSFER: 0, FREE: 0, UNPAID: 0 };
 const methodSales = (s: SalesSummaryResponse): SalesByMethod => s.salesByMethod ?? EMPTY_SALES_BY_METHOD;
 
+/** 건수 필드도 응답에 따라 빠질 수 있어 0으로 방어 후 표시(통화 아닌 정수 카운트용) */
+const fmtCount = (n: number | null | undefined): string => (n ?? 0).toLocaleString("ko-KR");
+
 /** 요약 → 내보내기용 행 [항목, 값] */
 const toRows = (s: SalesSummaryResponse): (string | number)[][] => {
   const m = methodSales(s);
@@ -194,7 +197,7 @@ export default function SalesSummaryCard() {
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">총 주문 건수</div>
-              <div className="admin__stat-value">{summary.orderCount.toLocaleString("ko-KR")}건</div>
+              <div className="admin__stat-value">{fmtCount(summary.orderCount)}건</div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">평균 객단가</div>
@@ -203,13 +206,13 @@ export default function SalesSummaryCard() {
             <div className="admin__stat">
               <div className="admin__stat-label">현장 / 포장 건수</div>
               <div className="admin__stat-value">
-                {summary.dineInOrderCount.toLocaleString("ko-KR")} /{" "}
-                {summary.takeoutOrderCount.toLocaleString("ko-KR")}건
+                {fmtCount(summary.dineInOrderCount)} /{" "}
+                {fmtCount(summary.takeoutOrderCount)}건
               </div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">취소 건수</div>
-              <div className="admin__stat-value">{summary.canceledCount.toLocaleString("ko-KR")}건</div>
+              <div className="admin__stat-value">{fmtCount(summary.canceledCount)}건</div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">현금 결제</div>
