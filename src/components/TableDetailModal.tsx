@@ -182,6 +182,22 @@ export default function TableDetailModal({
                           <div
                             key={m.id}
                             className={`manual-menu-card${m.soldOut ? " manual-menu-card--soldout" : ""}`}
+                            // QR 주문처럼 박스 자체를 눌러도 1개 담긴다. 스테퍼 안 −/+ 버튼은
+                            // 각자 stopPropagation 해서 여기로 안 겹쳐 올라온다.
+                            onClick={m.soldOut ? undefined : () => addOne(m.id)}
+                            role={m.soldOut ? undefined : "button"}
+                            tabIndex={m.soldOut ? undefined : 0}
+                            onKeyDown={
+                              m.soldOut
+                                ? undefined
+                                : (e) => {
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      addOne(m.id);
+                                    }
+                                  }
+                            }
+                            aria-label={m.soldOut ? `${m.name} 품절` : `${m.name} 담기`}
                           >
                             {m.image ? (
                               <img className="manual-menu-card__img" src={m.image} alt="" />
@@ -193,28 +209,30 @@ export default function TableDetailModal({
                               <span className="manual-menu-card__price">{formatKRW(m.price)}</span>
                             </div>
 
-                            {m.soldOut ? (
-                              <span className="manual-menu-card__soldout">품절</span>
-                            ) : qty === 0 ? (
-                              <button
-                                type="button"
-                                className="manual-menu-card__add"
-                                onClick={() => addOne(m.id)}
-                                aria-label={`${m.name} 담기`}
-                              >
-                                +
-                              </button>
-                            ) : (
-                              <div className="manual-menu-card__stepper" role="group" aria-label={`${m.name} 수량`}>
-                                <button type="button" onClick={() => decr(m.id)} aria-label="수량 감소">
-                                  −
-                                </button>
-                                <span className="manual-menu-card__qty">{qty}</span>
-                                <button type="button" onClick={() => incr(m.id)} aria-label="수량 증가">
+                            <div className="manual-menu-card__foot">
+                              {m.soldOut ? (
+                                <span className="manual-menu-card__soldout">품절</span>
+                              ) : qty === 0 ? (
+                                <span className="manual-menu-card__add" aria-hidden="true">
                                   +
-                                </button>
-                              </div>
-                            )}
+                                </span>
+                              ) : (
+                                <div
+                                  className="manual-menu-card__stepper"
+                                  role="group"
+                                  aria-label={`${m.name} 수량`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button type="button" onClick={() => decr(m.id)} aria-label="수량 감소">
+                                    −
+                                  </button>
+                                  <span className="manual-menu-card__qty">{qty}</span>
+                                  <button type="button" onClick={() => incr(m.id)} aria-label="수량 증가">
+                                    +
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -261,10 +279,13 @@ export default function TableDetailModal({
                 </div>
                 {payMethod === "transfer" && (
                   hasAccount ? (
-                    <p className="manual-pay__account">
-                      {account.bank} <strong>{account.number}</strong>
-                      {account.holder ? ` · ${account.holder}` : ""}
-                    </p>
+                    <div className="manual-pay__account">
+                      <span className="manual-pay__account-bank">
+                        {account.bank}
+                        {account.holder ? ` · ${account.holder}` : ""}
+                      </span>
+                      <span className="manual-pay__account-number">{account.number}</span>
+                    </div>
                   ) : (
                     <p className="manual-pay__account manual-pay__account--warn">
                       등록된 정산 계좌가 없습니다 — 관리자 탭에서 먼저 등록해 주세요.
