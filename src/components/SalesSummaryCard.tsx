@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { salesApi } from "@/lib/endpoints";
-import type { OrderResponse, SalesSummaryResponse } from "@/lib/dto";
+import type { OrderResponse, SalesByMethod, SalesSummaryResponse } from "@/lib/dto";
 import { ApiError } from "@/lib/api";
 import { formatKRW } from "@/lib/types";
 import { IconDot, IconBox } from "@/components/icons";
@@ -15,25 +15,35 @@ const todaySeoul = (): string =>
     day: "2-digit",
   }).format(new Date());
 
+/**
+ * salesByMethod 는 2026-09-24 명세서에 추가된 필드다 — 배포 시점이 안 맞거나 매출이
+ * 0인 일부 응답에서 아직 안 내려올 수 있어, 없으면 0으로 채워 화면이 죽지 않게 한다.
+ */
+const EMPTY_SALES_BY_METHOD: SalesByMethod = { PAYAPP: 0, CASH: 0, TRANSFER: 0, FREE: 0, UNPAID: 0 };
+const methodSales = (s: SalesSummaryResponse): SalesByMethod => s.salesByMethod ?? EMPTY_SALES_BY_METHOD;
+
 /** 요약 → 내보내기용 행 [항목, 값] */
-const toRows = (s: SalesSummaryResponse): (string | number)[][] => [
-  ["항목", "값"],
-  ["날짜", s.date],
-  ["총 매출", s.totalSales],
-  ["누적 매출", s.cumulativeSales],
-  ["현장 주문 매출", s.dineInSales],
-  ["포장 주문 매출", s.takeoutSales],
-  ["총 주문 건수", s.orderCount],
-  ["현장 주문 건수", s.dineInOrderCount],
-  ["포장 주문 건수", s.takeoutOrderCount],
-  ["평균 객단가", s.avgOrderPrice],
-  ["취소 건수", s.canceledCount],
-  ["간편결제(PayApp)", s.salesByMethod.PAYAPP],
-  ["현금 결제", s.salesByMethod.CASH],
-  ["계좌이체 결제", s.salesByMethod.TRANSFER],
-  ["무료(0원)", s.salesByMethod.FREE],
-  ["미결제(후불)", s.salesByMethod.UNPAID],
-];
+const toRows = (s: SalesSummaryResponse): (string | number)[][] => {
+  const m = methodSales(s);
+  return [
+    ["항목", "값"],
+    ["날짜", s.date],
+    ["총 매출", s.totalSales],
+    ["누적 매출", s.cumulativeSales],
+    ["현장 주문 매출", s.dineInSales],
+    ["포장 주문 매출", s.takeoutSales],
+    ["총 주문 건수", s.orderCount],
+    ["현장 주문 건수", s.dineInOrderCount],
+    ["포장 주문 건수", s.takeoutOrderCount],
+    ["평균 객단가", s.avgOrderPrice],
+    ["취소 건수", s.canceledCount],
+    ["간편결제(PayApp)", m.PAYAPP],
+    ["현금 결제", m.CASH],
+    ["계좌이체 결제", m.TRANSFER],
+    ["무료(0원)", m.FREE],
+    ["미결제(후불)", m.UNPAID],
+  ];
+};
 
 /** 브라우저 다운로드 트리거 */
 const triggerDownload = (blob: Blob, filename: string) => {
@@ -203,18 +213,18 @@ export default function SalesSummaryCard() {
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">현금 결제</div>
-              <div className="admin__stat-value">{formatKRW(summary.salesByMethod.CASH)}</div>
+              <div className="admin__stat-value">{formatKRW(methodSales(summary).CASH)}</div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">계좌이체 결제</div>
-              <div className="admin__stat-value">{formatKRW(summary.salesByMethod.TRANSFER)}</div>
+              <div className="admin__stat-value">{formatKRW(methodSales(summary).TRANSFER)}</div>
             </div>
             <div className="admin__stat">
               <div className="admin__stat-label">미결제(후불)</div>
               <div
-                className={`admin__stat-value${summary.salesByMethod.UNPAID > 0 ? " admin__stat-value--warn" : ""}`}
+                className={`admin__stat-value${methodSales(summary).UNPAID > 0 ? " admin__stat-value--warn" : ""}`}
               >
-                {formatKRW(summary.salesByMethod.UNPAID)}
+                {formatKRW(methodSales(summary).UNPAID)}
               </div>
             </div>
           </div>
