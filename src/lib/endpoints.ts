@@ -166,6 +166,9 @@ export const tableApi = {
   /**
    * POST /api/pos/tables/{tableId}/payment — 테이블 계산(미결제 주문 전부를 한 번에).
    * 미결제가 없으면 200 []. (2026-09-24 추가)
+   * ⚠️ 그 테이블의 미결제 주문 전부(손님이 페이앱 결제창을 열어둔 채 아직 안 낸
+   * PENDING_PAYMENT 주문 포함)를 한 번에 이 결제수단으로 처리한다 — 방금 만든 주문
+   * "하나만" 정산하고 싶을 땐 이걸 쓰지 말고 orderApi.payment(orderId, ...) 를 써라.
    */
   payment: (tableId: number, req: CounterPaymentRequest) =>
     http.post<PaymentResponse[]>(`/api/pos/tables/${tableId}/payment`, { query: posQuery(), body: req }),

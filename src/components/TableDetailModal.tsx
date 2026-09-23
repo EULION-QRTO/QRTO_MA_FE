@@ -11,7 +11,7 @@ import {
 } from "@/lib/types";
 import { clock } from "@/lib/time";
 import { parseServerTime } from "@/lib/mappers";
-import { tableApi } from "@/lib/endpoints";
+import { tableApi, orderApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 import type { OrderResponse, PaymentMethod, TableOrdersResponse } from "@/lib/dto";
 
@@ -53,8 +53,20 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   FREE: "무료",
 };
 
-/** 주문 하나의 결제 상태 배지 — 미결제/결제수단별로 표시 */
+/**
+ * 주문 하나의 결제 상태 배지 — 미결제/결제수단별로 표시.
+ * PENDING_PAYMENT(손님이 페이앱 결제창을 열어둔 채 아직 안 낸 것)는 일반 "미결제"와
+ * 구분해서 보여준다 — 테이블 전체 카운터 결제를 누르면 이것도 같이 결제 처리되므로,
+ * 홀 직원이 손님이 지금 페이앱으로 결제 중일 수 있다는 걸 알고 눌러야 한다.
+ */
 function PayBadge({ order }: { order: OrderResponse }) {
+  if (order.status === "PENDING_PAYMENT") {
+    return (
+      <span className="table-detail__order-badge table-detail__order-badge--pending">
+        결제대기(페이앱)
+      </span>
+    );
+  }
   if (!order.paid) return <span className="table-detail__order-badge table-detail__order-badge--unpaid">미결제</span>;
   return (
     <span className="table-detail__order-badge">
@@ -88,12 +100,30 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
     void reloadBundle();
   }, [reloadBundle]);
 
-  // ── 섹션 1: 미결제 합계 결제(현금·계좌이체) ──
+  const orders = bundle?.orders ?? [];
+  const unpaidTotal = bundle?.unpaidTotal ?? 0;
+  const grandTotal = (bundle?.paidTotal ?? 0) + unpaidTotal;
+  /** 손님이 페이앱 결제창을 열어둔 채 아직 안 낸 주문 — 테이블 일괄 결제에 같이 쓸려 들어갈 수 있다 */
+  const pendingPaymentOrders = orders.filter((o) => o.status === "PENDING_PAYMENT");
+
+  // ── 섹션 1: 미결제 합계 결제(현금·계좌이체) — 테이블의 미결제 전부를 한 번에 처리한다 ──
   const [paying, setPaying] = useState<PayMethod | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
 
   const settleUnpaid = async (method: PayMethod) => {
     if (paying) return;
+    // 페이앱 결제대기 주문이 섞여 있으면, 그것까지 같이 이 결제수단으로 처리된다는 걸
+    // 한 번 더 확인시킨다(손님이 지금 막 페이앱으로 결제하려던 걸 덮어쓸 수 있어서).
+    if (
+      pendingPaymentOrders.length > 0 &&
+      !window.confirm(
+        `결제대기(페이앱) 주문 ${pendingPaymentOrders.length}건이 포함돼 있습니다. 손님이 지금 ` +
+          `페이앱으로 결제 중일 수 있습니다 — 그래도 전부 ${method === "CASH" ? "현금" : "계좌이체"}로 ` +
+          `처리할까요?`,
+      )
+    ) {
+      return;
+    }
     setPaying(method);
     setPayError(null);
     try {
@@ -146,9 +176,12 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
 
   /**
    * "주문 접수": 새 주문을 만들고(POST .../orders, 접수 즉시 RECEIVED·미결제),
-   * 곧바로 그 결제수단으로 테이블 미결제 전체를 정산한다(POST .../payment).
-   * ⚠️ 테이블 결제는 항목별이 아니라 "그 테이블의 미결제 전부"를 한 번에 처리한다 —
-   * 이 테이블에 정산 전 기존 미결제 주문이 있었다면 그것도 같이 이 결제수단으로 처리된다.
+   * 방금 만든 "그 주문 하나만" 주문 단위 결제(POST orders/{id}/payment)로 정산한다.
+   * ⚠️ 테이블 단위 결제(tableApi.payment)를 여기서 쓰면 안 된다 — 그건 그 테이블의
+   * 미결제 전부(손님이 페이앱 결제창을 열어둔 채 아직 안 낸 PENDING_PAYMENT 주문 포함)를
+   * 한꺼번에 이 결제수단으로 처리해버려서, 손님이 지금 막 페이앱으로 결제하려던 주문까지
+   * 엉뚱하게 "현금 결제완료"로 바뀌어 버릴 수 있다. 그래서 방금 만든 주문의 id 로만
+   * 결제를 확정한다 — 테이블에 있던 다른 미결제 주문은 건드리지 않는다.
    */
   const submit = async () => {
     if (!canSubmit) return;
@@ -156,8 +189,8 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
     setSubmitError(null);
     try {
       const items = Object.entries(cart).map(([id, quantity]) => ({ menuId: Number(id), quantity }));
-      await tableApi.createOrder(table.id, { items });
-      await tableApi.payment(table.id, { method: payMethod! });
+      const created = await tableApi.createOrder(table.id, { items });
+      await orderApi.payment(created.id, { method: payMethod! });
       setCart({});
       setPayMethod(null);
       setJustSubmitted(true);
@@ -170,10 +203,6 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
       setSubmitting(false);
     }
   };
-
-  const orders = bundle?.orders ?? [];
-  const unpaidTotal = bundle?.unpaidTotal ?? 0;
-  const grandTotal = (bundle?.paidTotal ?? 0) + unpaidTotal;
 
   return (
     <div className="modal-overlay" onClick={onClose}>

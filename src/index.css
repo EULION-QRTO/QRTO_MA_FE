@@ -1069,6 +1069,11 @@ button {
   background: #fdeaea;
   color: var(--color-state-new-order);
 }
+/* 손님이 페이앱 결제창을 열어둔 채 아직 안 낸 주문 — 일반 미결제와 다른 색으로 구분 */
+.table-detail__order-badge--pending {
+  background: #fff3e0;
+  color: var(--color-state-warning);
+}
 /* 미결제 합계 + 현금·계좌이체 결제 버튼 */
 .table-detail__settle {
   margin-top: var(--space-md);
