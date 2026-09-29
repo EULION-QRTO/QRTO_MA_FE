@@ -4,6 +4,7 @@ import LoginPage from "@/pages/LoginPage";
 import OperatorLoginPage from "@/pages/OperatorLoginPage";
 import OperatorDashboard from "@/pages/OperatorDashboard";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import UpdateBanner from "@/components/UpdateBanner";
 import { getSession } from "@/lib/auth";
 
 /** 진입점: 세션 역할에 따라 POS / 운영자 대시보드로, 없으면 로그인으로. */
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <UpdateBanner />
     </ErrorBoundary>
   );
 }

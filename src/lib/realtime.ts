@@ -6,7 +6,7 @@
  *  - SUB /topic/stores/{storeId}/staff-calls   (CALLED | RESOLVED)
  * 를 구독한다. @stomp/stompjs 사용.
  */
-import { Client, type IMessage } from "@stomp/stompjs";
+import { Client, ReconnectionTimeMode, type IMessage } from "@stomp/stompjs";
 import { WS_BASE_URL } from "./config";
 import { getToken } from "./session";
 import type { OrderEvent, StaffCallEvent } from "./dto";
@@ -26,7 +26,12 @@ export function connectRealtime(storeId: string | number, handlers: RealtimeHand
   const client = new Client({
     brokerURL: WS_BASE_URL,
     connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
-    reconnectDelay: 3000,
+    // 축제 현장 와이파이가 끊겼다 붙었다 할 때 3초 고정 재시도로 계속 두드리지 않도록
+    // 지수 백오프(1초 → 최대 30초)로 재연결한다. 재연결 후 재동기화는 PosApp 의
+    // onConnect 핸들러(끊긴 동안 놓친 이벤트를 메꾸는 전체 재조회)가 담당한다.
+    reconnectDelay: 1000,
+    reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
+    maxReconnectDelay: 30000,
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
   });

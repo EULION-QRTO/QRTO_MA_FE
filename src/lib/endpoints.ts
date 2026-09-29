@@ -160,9 +160,17 @@ export const tableApi = {
    * POST /api/pos/tables/{tableId}/orders — 포스 직접 주문(카운터 현금·계좌이체용).
    * 결제 없이 즉시 RECEIVED(후불), source:"POS", paid:false 로 생성된다. 1~50개, menuId 중복 불가.
    * (2026-09-24 추가)
+   * idempotencyKey: 응답을 못 받아 홀 직원이 "주문 접수"를 다시 누를 때 같은 값을 재사용하면
+   * Idempotency-Key 헤더로 실려 간다. ⚠️ 서버가 이 헤더를 실제로 처리하는지는 미확인 — 그
+   * 전까지는 중복 생성을 완전히 막아주진 않는다(호출부에서 항상 최신 orders 를 다시 불러와
+   * 눈으로 확인하는 걸 권장).
    */
-  createOrder: (tableId: number, req: PosOrderCreateRequest) =>
-    http.post<OrderResponse>(`/api/pos/tables/${tableId}/orders`, { query: posQuery(), body: req }),
+  createOrder: (tableId: number, req: PosOrderCreateRequest, idempotencyKey?: string) =>
+    http.post<OrderResponse>(`/api/pos/tables/${tableId}/orders`, {
+      query: posQuery(),
+      body: req,
+      idempotencyKey,
+    }),
   /**
    * POST /api/pos/tables/{tableId}/payment — 테이블 계산(미결제 주문 전부를 한 번에).
    * 미결제가 없으면 200 []. (2026-09-24 추가)
@@ -170,8 +178,12 @@ export const tableApi = {
    * PENDING_PAYMENT 주문 포함)를 한 번에 이 결제수단으로 처리한다 — 방금 만든 주문
    * "하나만" 정산하고 싶을 땐 이걸 쓰지 말고 orderApi.payment(orderId, ...) 를 써라.
    */
-  payment: (tableId: number, req: CounterPaymentRequest) =>
-    http.post<PaymentResponse[]>(`/api/pos/tables/${tableId}/payment`, { query: posQuery(), body: req }),
+  payment: (tableId: number, req: CounterPaymentRequest, idempotencyKey?: string) =>
+    http.post<PaymentResponse[]>(`/api/pos/tables/${tableId}/payment`, {
+      query: posQuery(),
+      body: req,
+      idempotencyKey,
+    }),
 };
 
 /* ── 포스 메인: 테이블 현황 ── */
@@ -200,9 +212,14 @@ export const orderApi = {
    * POST /api/pos/orders/{orderId}/payment — 카운터 결제 확인(주문 단위).
    * 대상은 미결제 주문(손님 QR 결제대기 주문 포함), 부분 결제 없음(전액). 결제대기였으면 RECEIVED 로
    * 전환, 이미 접수된 주문이면 결제 표시만 바뀐다. (2026-09-24 추가)
+   * idempotencyKey: tableApi.createOrder 와 동일한 용도·주의사항.
    */
-  payment: (orderId: number, req: CounterPaymentRequest) =>
-    http.post<PaymentResponse>(`/api/pos/orders/${orderId}/payment`, { query: posQuery(), body: req }),
+  payment: (orderId: number, req: CounterPaymentRequest, idempotencyKey?: string) =>
+    http.post<PaymentResponse>(`/api/pos/orders/${orderId}/payment`, {
+      query: posQuery(),
+      body: req,
+      idempotencyKey,
+    }),
 };
 
 /* ── 직원 호출 ── */

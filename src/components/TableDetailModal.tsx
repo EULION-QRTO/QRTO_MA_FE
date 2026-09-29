@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Table,
   MenuItem,
@@ -12,7 +12,7 @@ import {
 import { clock } from "@/lib/time";
 import { parseServerTime } from "@/lib/mappers";
 import { tableApi, orderApi } from "@/lib/endpoints";
-import { ApiError } from "@/lib/api";
+import { ApiError, newIdempotencyKey } from "@/lib/api";
 import type { OrderResponse, PaymentMethod, TableOrdersResponse } from "@/lib/dto";
 
 type PayMethod = "CASH" | "TRANSFER";
@@ -143,6 +143,19 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = useState(false);
+  /**
+   * 네트워크가 끊겨 응답을 못 받은 채로 홀 직원이 "주문 접수"를 다시 누르는 경우를 위한
+   * 상태. 주문 생성까지는 성공했는데 결제 확인만 실패했다면, 다음 시도에서 주문을 또
+   * 만들지 않고 그 주문의 결제만 재시도한다. 장바구니 내용이 바뀌면(더는 같은 주문 시도가
+   * 아니므로) 초기화 — 이 경우 이미 만들어진 주문은 미결제 상태로 섹션1에 남고, 거기서
+   * 따로 정산할 수 있다.
+   */
+  const pendingOrderRef = useRef<{ orderId: number; key: string } | null>(null);
+  const [hasPendingOrder, setHasPendingOrder] = useState(false);
+  useEffect(() => {
+    pendingOrderRef.current = null;
+    setHasPendingOrder(false);
+  }, [cart]);
 
   const setQty = (id: string, qty: number) =>
     setCart((prev) => {
@@ -188,9 +201,20 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const items = Object.entries(cart).map(([id, quantity]) => ({ menuId: Number(id), quantity }));
-      const created = await tableApi.createOrder(table.id, { items });
-      await orderApi.payment(created.id, { method: payMethod! });
+      let pending = pendingOrderRef.current;
+      if (!pending) {
+        // 이전 시도에서 주문 생성까지 성공한 게 없으면 새로 만든다.
+        const items = Object.entries(cart).map(([id, quantity]) => ({ menuId: Number(id), quantity }));
+        const key = newIdempotencyKey();
+        const created = await tableApi.createOrder(table.id, { items }, key);
+        pending = { orderId: created.id, key };
+        pendingOrderRef.current = pending;
+        setHasPendingOrder(true);
+      }
+      // 결제 확인은 주문 생성과 같은 키를 재사용 — 같은 시도의 연장선이라는 의미.
+      await orderApi.payment(pending.orderId, { method: payMethod! }, pending.key);
+      pendingOrderRef.current = null;
+      setHasPendingOrder(false);
       setCart({});
       setPayMethod(null);
       setJustSubmitted(true);
@@ -448,7 +472,12 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
                 )}
               </div>
 
-              {submitError && <p className="table-detail__empty table-detail__empty--err">⚠️ {submitError}</p>}
+              {submitError && (
+                <p className="table-detail__empty table-detail__empty--err">
+                  ⚠️ {submitError}
+                  {hasPendingOrder && " (주문은 접수됐습니다 — 다시 누르면 결제 확인만 재시도합니다)"}
+                </p>
+              )}
               {justSubmitted && <p className="manual-submit-ok">✓ 주문이 접수·결제되었습니다.</p>}
               <button
                 type="button"
@@ -456,7 +485,7 @@ export default function TableDetailModal({ table, menu, account, onClose, onClea
                 disabled={!canSubmit}
                 onClick={() => void submit()}
               >
-                {submitting ? "처리 중…" : "주문 접수"}
+                {submitting ? "처리 중…" : hasPendingOrder ? "결제 확인 재시도" : "주문 접수"}
               </button>
             </section>
           </div>

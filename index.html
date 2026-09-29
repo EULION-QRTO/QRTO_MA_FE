@@ -2,11 +2,28 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
+    />
     <meta name="theme-color" content="#ff6b2c" />
     <title>Lpay POS</title>
     <meta name="description" content="QR 테이블오더 점주용 POS" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+
+    <!-- PWA: 홈 화면에 추가 시 주소창 없는 standalone 앱처럼 동작 -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+
+    <!-- iOS: 홈 화면 아이콘·standalone 모드(웹앱 매니페스트 지원이 약해 별도 태그 필요) -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lpay POS" />
+    <!-- 전화번호처럼 보이는 숫자(주문번호 등)를 iOS 가 자동으로 링크화하지 않게 -->
+    <meta name="format-detection" content="telephone=no" />
   </head>
   <body>
     <div id="root"></div>
