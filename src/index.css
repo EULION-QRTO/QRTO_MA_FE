@@ -446,6 +446,31 @@ button {
   font-weight: 700;
 }
 
+/* 새 버전 배너 — 화면 하단에 뜨는 작은 알림. 자동 새로고침 안 함(사용자가 직접 눌러야 적용) */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-pill);
+  background: var(--color-text-primary);
+  color: #fff;
+  font: var(--font-caption);
+  box-shadow: var(--shadow-card);
+}
+.update-banner__btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font: var(--font-badge);
+}
+
 /* ErrorBoundary 폴백 화면 — 렌더링 중 예상 못한 에러로 앱 전체가 멈췄을 때 */
 .app-crash {
   min-height: 100vh;
