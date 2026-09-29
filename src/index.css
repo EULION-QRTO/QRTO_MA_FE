@@ -435,6 +435,17 @@ button {
   font: var(--font-caption);
 }
 
+/* 연결 끊김 배너 — .app 최상단(헤더 위)에 자리를 차지해 기존 UI 를 가리지 않고 밀어낸다 */
+.network-banner {
+  flex-shrink: 0;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-state-new-order);
+  color: #fff;
+  text-align: center;
+  font: var(--font-caption);
+  font-weight: 700;
+}
+
 /* ErrorBoundary 폴백 화면 — 렌더링 중 예상 못한 에러로 앱 전체가 멈췄을 때 */
 .app-crash {
   min-height: 100vh;

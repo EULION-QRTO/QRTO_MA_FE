@@ -14,6 +14,8 @@ import {
 } from "@/lib/endpoints";
 import { connectRealtime } from "@/lib/realtime";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import NetworkBanner from "@/components/NetworkBanner";
 import {
   toTable,
   toWaitingOrder,
@@ -50,6 +52,10 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
   const navigate = useNavigate();
   // 축제 현장에서 iPad 를 Guided Access 로 잠가둔 채 장시간 POS 로 쓰므로 화면이 꺼지지 않게 한다.
   useWakeLock();
+  // 와이파이는 붙어있는데 인터넷이 안 되는 상황까지 잡는 연결 상태(브라우저 이벤트 + API 결과 결합).
+  // 실시간(STOMP) 채널 상태(아래 online state, 헤더의 "실시간/오프라인" 점)와는 별개로,
+  // 화면 상단 눈에 띄는 배너용이다.
+  const { online: networkOnline } = useNetworkStatus();
   const [tab, setTab] = useState<MainTab>("tables");
 
   // 헤더 표시용 주점 이름 (GET /api/pos/store 로 최신값 반영)
@@ -191,7 +197,14 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
       onStaffCall: () => {
         void reloadTables();
       },
-      onConnect: () => setOnline(true),
+      // 최초 연결·재연결(끊겼다 stompjs 가 자동으로 다시 붙은 경우) 모두 여기로 온다.
+      // 끊긴 동안 놓친 주문/직원호출 이벤트는 리플레이되지 않으므로, 붙을 때마다
+      // 전체를 다시 읽어와 화면을 실제 서버 상태와 재동기화한다.
+      onConnect: () => {
+        setOnline(true);
+        void reloadTablesAndOrders();
+        void reloadSales();
+      },
       onDisconnect: () => setOnline(false),
     });
     return disconnect;
@@ -398,6 +411,7 @@ export default function PosApp({ storeId, storeName: initialStoreName }: Props) 
 
   return (
     <div className="app">
+      <NetworkBanner online={networkOnline} />
       <Header
         storeName={storeName}
         todaySales={todaySales}
