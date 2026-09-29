@@ -13,6 +13,7 @@ import {
   staffCallApi,
 } from "@/lib/endpoints";
 import { connectRealtime } from "@/lib/realtime";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import {
   toTable,
   toWaitingOrder,
@@ -47,6 +48,8 @@ interface Props {
 
 export default function PosApp({ storeId, storeName: initialStoreName }: Props) {
   const navigate = useNavigate();
+  // 축제 현장에서 iPad 를 Guided Access 로 잠가둔 채 장시간 POS 로 쓰므로 화면이 꺼지지 않게 한다.
+  useWakeLock();
   const [tab, setTab] = useState<MainTab>("tables");
 
   // 헤더 표시용 주점 이름 (GET /api/pos/store 로 최신값 반영)
