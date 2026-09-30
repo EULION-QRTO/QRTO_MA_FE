@@ -84,18 +84,32 @@ export function isActiveWaiting(o: OrderResponse): boolean {
   return o.status === "RECEIVED" || o.status === "PREPARING" || o.status === "COOKED";
 }
 
+/**
+ * 전화번호(예 "01012345678")에서 "010"을 뺀 뒤 8자리를 "1234-5678" 형태로.
+ * 형식이 안 맞으면 null(호출부에서 pickupNo/주문ID로 대체).
+ * 포스(STORE JWT) 조회는 마스킹 없는 원본 전화번호를 받으므로 그대로 쓸 수 있다.
+ */
+function formatPhoneTail(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  const tail = digits.length >= 8 ? digits.slice(-8) : "";
+  return tail.length === 8 ? `${tail.slice(0, 4)}-${tail.slice(4)}` : null;
+}
+
 /** OrderResponse → WaitingOrder. tableId→번호 매핑은 table-status 에서 구성해 전달. */
 export function toWaitingOrder(
   o: OrderResponse,
   tableNumberByTableId: Map<number, number>,
 ): WaitingOrder {
   const type: WaitType = o.orderType === "DINE_IN" ? "dine-in" : "takeout";
+  // 포장 주문은 뒷 4자리만으론 손님이 여럿일 때 헷갈려서, 010 을 뺀 8자리(중간4-뒤4)를 보여준다.
+  const phoneTail = type === "takeout" ? formatPhoneTail(o.phoneNumber) : null;
   return {
     id: String(o.id),
     type,
     tableNumber:
       o.tableId != null ? (tableNumberByTableId.get(o.tableId) ?? o.tableId) : undefined,
-    orderNo: o.pickupNo != null ? String(o.pickupNo) : `#${o.id}`,
+    orderNo: phoneTail ?? (o.pickupNo != null ? String(o.pickupNo) : `#${o.id}`),
     items: o.items.map((i) => ({ name: i.menuName, qty: i.quantity, price: i.unitPrice })),
     createdAt: parseServerTime(o.createdAt),
     stage: STATUS_TO_STAGE[o.status] ?? "received",
